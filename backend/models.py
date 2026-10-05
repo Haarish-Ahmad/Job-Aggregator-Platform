@@ -11,11 +11,10 @@ class Students(Base):
     name:Mapped[str]=mapped_column(String(100),nullable=False)
     branch:Mapped[str]=mapped_column(String(100))
     email:Mapped[str]=mapped_column(String(255),unique=True,nullable=False,index=True)
-    password_hash:Mapped[str]=mapped_column(String(255),unique=True,nullable=False,index=True)
-    year_grad:Mapped[int]=mapped_column(nullable=False)
+    password_hash:Mapped[str]=mapped_column(String(255),nullable=False,index=True)
+    grad_year:Mapped[int]=mapped_column(Integer,nullable=False)
     role:Mapped[str]=mapped_column(String(100),default='student')
     cgpa:Mapped[float|None]=mapped_column(Float)
-    grad_year:Mapped[int | None] = mapped_column(Integer)
     skills:Mapped[list[str]] = mapped_column(ARRAY(String), default=list)
     resume_link:Mapped[str|None]=mapped_column(Text)
     created_at:Mapped[datetime]=mapped_column(DateTime,server_default=func.now())
@@ -42,7 +41,6 @@ class Job(Base):
     min_cgpa:Mapped[float|None]=mapped_column(Float)
     allowed_branches:Mapped[list[str]]=mapped_column(ARRAY(String),default=list,nullable=True)
     allowed_grads:Mapped[list[int]]=mapped_column(ARRAY(Integer),default=list)
-    year_grad:Mapped[int]=mapped_column(nullable=False)
     necessary_skills:Mapped[list[str]]=mapped_column(ARRAY(String), default=list)
     apply_url:Mapped[str | None]=mapped_column(String(500))
     content_hash:Mapped[str]=mapped_column(String(64), unique=True)
@@ -54,6 +52,7 @@ class Job(Base):
 
 class Match(Base):
     __tablename__="matches"
+
     __table_args__=(UniqueConstraint("student_id", "job_id", name="uq_student_job"),)
     id:Mapped[int]=mapped_column(primary_key=True)
     student_id:Mapped[int]=mapped_column(ForeignKey("students.id"),index=True)
@@ -65,6 +64,7 @@ class Match(Base):
 
 class ScrapedRuns(Base):
     __tablename__="scrapes"
+
     id:Mapped[int]=mapped_column(primary_key=True)
     started_at: Mapped[datetime]=mapped_column(DateTime,server_default=func.now())
     scrap_status:Mapped[str]=mapped_column(String(20),default="running")
