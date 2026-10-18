@@ -5,7 +5,7 @@ from sqlalchemy import pool
 
 from alembic import context
 from db import Base, DATABASE_URL
-import models  # registers the tables
+import models  # noqa: F401  (registers the tables)
 
 
 # this is the Alembic Config object, which provides
