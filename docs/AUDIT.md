@@ -1,4 +1,10 @@
-# Phase 0 Audit
+# Audit
+
+> **Status (end of integration work).** Sections 1–10 below are the **Phase 0 audit as found**, kept unchanged as the record of what
+> the code did *before* this branch. **[Resolution](#resolution-of-the-audit-findings)** says what happened to each finding and
+> **[Known limitations](#known-limitations)** lists what is still not done and why. The README describes the system as it is now.
+
+## Phase 0 audit (as found)
 
 Date: 2026-10-18 · Branch: `integration/full-stack` (= `origin/main` + `origin/chay_branch`, see [DECISIONS.md](DECISIONS.md) D1)
 
@@ -236,3 +242,88 @@ These need a team decision, not just engineering (mission rule 5):
 - psycopg-vs-psycopg2 behaviour was verified with SQLAlchemy 2.0.55 (works) and 2.1.5 (fails); other drivers weren't tried.
 - Concurrency (M4) is read from the code, not load-tested.
 - The 42 cases were run by script, not through Bruno; request bodies are copied from `testcases.md`.
+
+
+---
+
+## Resolution of the audit findings
+
+Evidence for every "fixed" row is an automated test (backend 158, scraper 222, integration 9, frontend 63) and the whole-stack
+smoke test (`scripts/smoke.sh`, also run by CI). IDs are those used in section 5.
+
+| ID | Finding | Status | How |
+|---|---|---|---|
+| B1 | Unpinned deps; SQLAlchemy 2.1 breaks psycopg2 | **Fixed** | `requirements.txt` pinned (SQLAlchemy `2.0.55`), `requirements-dev.txt` |
+| B2 | `werkzeug`, `itsdangerous`, `email-validator` missing | **Fixed** | added and pinned |
+| B3 | Migration drifted from models; register returned 500 | **Fixed** | new migration `7c1e4a90b2d3` (data-preserving, tested against the original schema); the shipped migration is untouched; CI runs `alembic upgrade head` + `alembic check` |
+| B4 | DB URL hardcoded | **Fixed** | `DATABASE_URL` env (`backend/config.py`) |
+| B5 | No way to create an admin / machine ingest | **Fixed** | `X-Ingest-Token` (constant-time compare) + `python cli.py bootstrap-admin` from `ADMIN_EMAIL`/`ADMIN_PASSWORD` |
+| H1 | Coarse dedup key lost postings; never refreshed | **Fixed for scraped data** | upsert on `(source, external_id)` with a fingerprint; Internshala 310 of 777 lost → 0. Payloads *without* a source still use the old key (backward compatible) |
+| H2 | One bad record 500s the batch | **Fixed** | per-record validation and savepoints; results list per record |
+| H3 | `careers_url` was a job link | **Fixed** | the posting's site origin |
+| H4 | Register without `branch` returned 500 | **Fixed** | `branch` nullable (migration) |
+| H5 | Default `SECRET_KEY` | **Fixed** | refuses to start unless `APP_ENV=dev` or a private key is set |
+| H6 | CORS only `localhost:5173` | **Fixed** | `CORS_ORIGINS` env; the bundled nginx makes app and API same-origin |
+| H7 | `/company`, `/companies`, `/jobs/{id}` public | **Fixed, needs confirmation** | now require login, as the documentation said. **Behaviour change: the backend author must confirm** |
+| H8 | Empty password / year 1800 accepted | **Fixed** | password ≥ 8, grad year 2000–2100, cgpa 0–10 |
+| M1 | `limit=-1` 500 | **Fixed** | `limit<1`, `offset<0` → 422; `limit>100` clamps (TC-30) |
+| M2 | `GET /me/matches` writes to the DB | **Open** | needed for alerts; see limitations |
+| M3 | `%` / `_` not escaped in search | **Fixed** | escaped |
+| M4 | N+1 queries / ingest race | **Race fixed, N+1 open** | savepoint + unique-violation handling; per-record queries remain (batches ≤ 500) |
+| M5 | Expired / vanished postings stay listed | **Fixed** | `hide_expired`, `last_seen_at`, `deactivate-stale` after each scrape cycle. Expired postings are still *listed by default* because TC-25 requires it |
+| M6 | `allowed_branches` lowercased | **Open (harmless)** | matching is case-insensitive; the UI upper-cases for display |
+| M7 | PATCH silently ignores unknown fields | **Open (documented)** | TC-14/15 specify this |
+| M8 | `scrapes` table unused | **Open** | run history lives in Prometheus metrics instead |
+| M9 | No `.gitattributes`, Dockerfile, tests, linter | **Fixed** | all added; CI enforces them |
+| TC-37 | 0%-match jobs shown | **Fixed** | hidden unless `include_unmatched=true` |
+| Gaps | Email alerts, analytics, skill gap, curriculum, metrics, scheduler | **Built** | see README; each has tests |
+| Scraper | `OLLAMA_URL` name; no metrics, no ingest client, no scheduler, root image | **Fixed** | `OLLAMA_HOST` (old name still read), `scraper serve`, `--push`, metrics, non-root healthchecked image |
+| Scraper | WFH/no-location postings stored | **Handled** | flagged `is_remote` / `is_india`; the UI defaults to India + remote with a filter |
+
+### Defects found *after* the audit, while verifying on live data
+These were not in the audit; each has a regression test.
+
+* Shine: the employer was sometimes the "Actively Hiring" badge (21 of the first 100 live jobs). Fixed in `parse_listing`.
+* Google: `normalize()` read the employer brand and dropped it (same bug class as Internshala).
+* The scraper pushed *cached* records for unchanged jobs, so parser fixes never reached the backend, and its change fingerprint
+  covered only the description text, so extraction enabled later was never delivered. Both fixed (see DECISIONS D11).
+* Dates: a deadline of "today" showed as "Closes tomorrow", and a posted date was off by one day in far-east time zones.
+* `bootstrap-admin` accepted an `ADMIN_EMAIL` the login form would reject (e.g. `admin@example.test`), creating an admin who could never sign in.
+* The first smoke test could not bind its mock ports (a real Firecrawl owned them) and silently scraped the real site; the test
+  now uses its own ports and aborts if the mocks are not up.
+
+## Known limitations
+
+Things not done, and why. None blocks the stack from running.
+
+**Needs a decision or action from the team**
+* **This branch contains `chay_branch`, which is not merged into `main`.** Merging this PR merges that backend work too (DECISIONS D1).
+* **Login is now required on `/company`, `/companies`, `/jobs/{id}`** (H7). The backend author should confirm this is intended.
+* **The release workflow has not published anything yet.** It is validated with `actionlint` and its build steps run in CI without
+  pushing, but the push to GHCR only happens on merge to `main` or a version tag. After the first release, check that the packages'
+  visibility suits you (new GHCR packages are private by default).
+
+**External services (by design)**
+* Firecrawl and Ollama are not in the compose file. Shine needs Firecrawl; without it that source logs a warning and is skipped.
+  Ollama extraction is off by default (`SERVE_EXTRACT=false`); on Linux the host's Ollama must listen on `0.0.0.0` for containers to reach it.
+* Without extraction, skills come from each source's own skill tags. Microsoft, Google and Greenhouse list requirement *sentences*
+  rather than skills, so those postings carry no skills (and add nothing to the skill and curriculum analytics) until extraction runs.
+
+**Product scope**
+* Only India-based fresher/intern software roles survive the relevance filter, so some sources yield very little: for example Microsoft
+  produced **1 qualifying posting** in the verification run (5 were discovered, 4 filtered), Google 1, Y Combinator 0, Greenhouse 5.
+  Most of the data comes from Unstop, Shine and Internshala.
+* Internshala listings carry only card text (its detail pages are disallowed by robots.txt) and Shine gives only relative posting
+  times, so those sources have short or missing descriptions / no posted date.
+* Indeed, Naukri and Glassdoor are not covered: they sit behind CAPTCHAs / bot walls. The terms of service of the covered sites were not reviewed.
+* No password reset, email verification, or per-email unsubscribe link (alerts are switched off in the profile). Sign-in is rate-limited by nginx only.
+* Alerts are one digest per student after each scrape cycle; Prometheus alert rules exist but no Alertmanager is bundled.
+
+**Scale and engineering**
+* `GET /me/matches` recomputes in Python over all active jobs and writes the result; fine for thousands of postings, not millions (M2).
+* Ingest does per-record lookups (batches are capped at 500) (M4).
+* The backend runs as a single process: the Prometheus client keeps counters in memory, so more workers would split the numbers.
+* Counters for a scrape started by hand (`docker compose exec scraper scraper run …`) are not visible in Prometheus; only the scheduled cycles of `serve` are.
+* The first scrape after upgrading from the old fingerprint reports every existing job as `updated` once.
+* Frontend tests are component-level; there is no browser end-to-end test in CI. The pages were checked manually in headless Chrome against live data.
+* Legacy ingest payloads without `source`/`external_id` still collapse same-title/same-city postings (kept for backward compatibility).

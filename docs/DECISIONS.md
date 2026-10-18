@@ -45,3 +45,20 @@ Choices made without a team decision, newest last. Each says what, why, and how 
 - `students.branch` becomes nullable (the register schema already treats it as optional; today that path 500s).
 - The scraper stays in `scraper/` (not moved to `services/`): it is already a self-contained module. The backend stays in `backend/`.
 - Scraper `serve` mode (long-running, exposes `/metrics`) because Prometheus cannot scrape a one-shot CLI.
+
+## D11. What the scraper delivers, and what counts as "changed" (found while verifying on live data)
+- **What:** the scraper hands the backend the *freshly parsed* record for every saved and unchanged job (carrying over any stored LLM extraction), and its `source_content_hash` is a fingerprint of every field it sends, not only the description text.
+- **Why:** the first design pushed the on-disk cache for unchanged jobs and fingerprinted the text only. A parser fix (Shine's employer badge bug) never reached the database, and extraction enabled later was invisible to the backend.
+- **Consequence:** after upgrading, every previously pushed job is reported `updated` once. Harmless; subsequent runs report `unchanged`.
+
+## D12. Smaller choices made during integration
+- The scraper stays in `scraper/` and the backend in `backend/` (not moved to `services/`).
+- `scraper/docker-compose.yml` was removed: the root compose file supersedes it (it also used the old `OLLAMA_URL`).
+- `backend/README.md` was a one-line title; the API table, run instructions and matching rules that duplicated each other at the top of `backend/testcases.md` now live in `backend/README.md` (updated), and `testcases.md` points to it. The 42 cases are unchanged.
+- `limit` above 100 clamps (TC-30), while `limit<1` / `offset<0` are 422.
+- Ingest request-shape errors stay 422 (TC-23/24); size and semantic problems are per-record rejections.
+- The Prometheus client runs in a single backend process; running more workers would need multiprocess mode.
+- Six images are published (backend, scraper, frontend, nginx, prometheus, grafana), with configuration baked into the last three so a server needs only Docker, the compose files and an `.env`.
+- Actions are pinned to commit SHAs (the version is in a comment). Base images are pinned to a version tag.
+- `APP_ENV` defaults to `production` (D10); the compose file sets it explicitly.
+- The email-alert digest is sent once per scrape cycle (not per ingest batch) to limit noise.

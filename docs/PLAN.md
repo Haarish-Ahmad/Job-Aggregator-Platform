@@ -1,5 +1,9 @@
 # Plan
 
+> **Status:** every task below is done; the checkboxes were ticked as work landed. Where reality differed from the plan,
+> [DECISIONS.md](DECISIONS.md) says why (notably D11). The contract section is still accurate except that `source_content_hash`
+> is computed by the scraper over everything it sends (not just the description).
+
 Derived from [AUDIT.md](AUDIT.md) and the decisions in [DECISIONS.md](DECISIONS.md). Update the checkboxes as work lands.
 
 ## Layout
@@ -45,42 +49,42 @@ Field mapping: `company`→`company_name`, `url`→`apply_url`, `locations`→`l
 ## Tasks
 
 ### Phase 2a: backend (each item: minimal, backwards compatible, tested, listed in the PR)
-- [ ] `config.py` (pydantic-settings): `DATABASE_URL`, `SECRET_KEY`, `APP_ENV`, `CORS_ORIGINS`, `INGEST_TOKEN`, `ADMIN_EMAIL/PASSWORD`, SMTP, alert settings, `ROOT_PATH`. Refuse to start with a missing/default `SECRET_KEY` unless `APP_ENV=dev`.
-- [ ] Pin `requirements.txt` to verified versions; add `werkzeug`, `itsdangerous`, `email-validator`; add `requirements-dev.txt`.
-- [ ] Migration 2: fix drift (drop `year_grad`, `grad_year` NOT NULL, non-unique password-hash index, `branch` nullable). Migration 3: `source`, `external_id`, `source_content_hash`, `is_remote`, `is_india`, `work_mode`, `posted_date`, `last_seen_at`, `updated_at`, `students.alerts_enabled`; unique `(source, external_id)`.
-- [ ] Ingest: token auth, per-record results, length validation, upsert, bump `last_seen_at`.
-- [ ] Admin bootstrap command (`python -m cli bootstrap-admin`) from `ADMIN_EMAIL`/`ADMIN_PASSWORD`, run at container start; `deactivate-stale` command.
-- [ ] Auth on `/company`, `/companies`, `/jobs/{id}` (README says so; needs teammate confirmation).
-- [ ] `/me/matches`: hide 0% matches unless `include_unmatched=true` (TC-37).
-- [ ] `/jobs`: validated pagination (422 for `limit<1`/`offset<0`, `limit>100` clamps per TC-30), filters `location`, `skill`, `grad_year`, `source`, `scope`, `sort`, `X-Total-Count` header; `JobOut` gains company name and freshness fields.
-- [ ] Input hardening: password length, grad-year range, `branch` optional without 500, CORS from env.
-- [ ] Email alerts: opt-in flag, digest of new matches, SMTP via env (Mailpit in dev), `POST /internal/alerts/run`, sets `matches.notified_at`.
-- [ ] Analytics (SQL aggregations): skills demand/trend, skill gap (demand vs cohort skills), company/hiring patterns, curriculum alignment from `backend/curriculum.yaml`.
-- [ ] `/metrics` (prometheus-client), DB-aware `/health`.
-- [ ] Backend tests (pytest, real Postgres): all 42 `testcases.md` cases + ingest/upsert/token/auth/alerts/analytics.
+- [x] `config.py` (pydantic-settings): `DATABASE_URL`, `SECRET_KEY`, `APP_ENV`, `CORS_ORIGINS`, `INGEST_TOKEN`, `ADMIN_EMAIL/PASSWORD`, SMTP, alert settings, `ROOT_PATH`. Refuse to start with a missing/default `SECRET_KEY` unless `APP_ENV=dev`.
+- [x] Pin `requirements.txt` to verified versions; add `werkzeug`, `itsdangerous`, `email-validator`; add `requirements-dev.txt`.
+- [x] Migration 2: fix drift (drop `year_grad`, `grad_year` NOT NULL, non-unique password-hash index, `branch` nullable). Migration 3: `source`, `external_id`, `source_content_hash`, `is_remote`, `is_india`, `work_mode`, `posted_date`, `last_seen_at`, `updated_at`, `students.alerts_enabled`; unique `(source, external_id)`.
+- [x] Ingest: token auth, per-record results, length validation, upsert, bump `last_seen_at`.
+- [x] Admin bootstrap command (`python -m cli bootstrap-admin`) from `ADMIN_EMAIL`/`ADMIN_PASSWORD`, run at container start; `deactivate-stale` command.
+- [x] Auth on `/company`, `/companies`, `/jobs/{id}` (README says so; needs teammate confirmation).
+- [x] `/me/matches`: hide 0% matches unless `include_unmatched=true` (TC-37).
+- [x] `/jobs`: validated pagination (422 for `limit<1`/`offset<0`, `limit>100` clamps per TC-30), filters `location`, `skill`, `grad_year`, `source`, `scope`, `sort`, `X-Total-Count` header; `JobOut` gains company name and freshness fields.
+- [x] Input hardening: password length, grad-year range, `branch` optional without 500, CORS from env.
+- [x] Email alerts: opt-in flag, digest of new matches, SMTP via env (Mailpit in dev), `POST /internal/alerts/run`, sets `matches.notified_at`.
+- [x] Analytics (SQL aggregations): skills demand/trend, skill gap (demand vs cohort skills), company/hiring patterns, curriculum alignment from `backend/curriculum.yaml`.
+- [x] `/metrics` (prometheus-client), DB-aware `/health`.
+- [x] Backend tests (pytest, real Postgres): all 42 `testcases.md` cases + ingest/upsert/token/auth/alerts/analytics.
 
 ### Phase 2b: scraper
-- [ ] Fix Internshala employer (selector `company_name`; return `company`); re-run, report new dedup numbers.
-- [ ] Mapper + ingest client (batches, retries, per-record result handling), truncation/normalisation, India/remote flags.
-- [ ] CLI `scraper run --push`; `scraper serve` (scheduler + `/metrics` + `/health`).
-- [ ] Rename Ollama setting to `OLLAMA_HOST` (keep `OLLAMA_URL` as an alias), default `http://host.docker.internal:11434`.
-- [ ] Metrics: pages scraped, extraction ok/fail, LLM latency, run duration, records pushed/rejected.
-- [ ] Non-root, healthchecked image. Integration test: fixture markdown → mocked Ollama → backend ingest → queryable via API.
+- [x] Fix Internshala employer (selector `company_name`; return `company`); re-run, report new dedup numbers.
+- [x] Mapper + ingest client (batches, retries, per-record result handling), truncation/normalisation, India/remote flags.
+- [x] CLI `scraper run --push`; `scraper serve` (scheduler + `/metrics` + `/health`).
+- [x] Rename Ollama setting to `OLLAMA_HOST` (keep `OLLAMA_URL` as an alias), default `http://host.docker.internal:11434`.
+- [x] Metrics: pages scraped, extraction ok/fail, LLM latency, run duration, records pushed/rejected.
+- [x] Non-root, healthchecked image. Integration test: fixture markdown → mocked Ollama → backend ingest → queryable via API.
 
 ### Phase 3: frontend (React + Vite + TS)
-- [ ] Auth pages, listings (search, filters, sort, pagination, freshness, scope India+remote default), job detail + apply link, matches, alert subscription/profile, 4 analytics pages, loading/empty/error states, API base from config, multi-stage Dockerfile → nginx, lint + typecheck + unit tests.
+- [x] Auth pages, listings (search, filters, sort, pagination, freshness, scope India+remote default), job detail + apply link, matches, alert subscription/profile, 4 analytics pages, loading/empty/error states, API base from config, multi-stage Dockerfile → nginx, lint + typecheck + unit tests.
 
 ### Phase 4: infrastructure
-- [ ] `docker-compose.yml`: db, backend, scraper, frontend, nginx, prometheus, grafana, mailpit; healthchecks, `service_healthy` ordering, named volumes, restart policies, env-only credentials, `extra_hosts` for host Ollama/Firecrawl.
-- [ ] nginx: `/`→frontend, `/api/`→backend, `/grafana/`→grafana; gzip, timeouts, security headers.
-- [ ] Prometheus scrape configs; Grafana datasource + dashboards (API health, scraper pipeline) provisioned from files.
+- [x] `docker-compose.yml`: db, backend, scraper, frontend, nginx, prometheus, grafana, mailpit; healthchecks, `service_healthy` ordering, named volumes, restart policies, env-only credentials, `extra_hosts` for host Ollama/Firecrawl.
+- [x] nginx: `/`→frontend, `/api/`→backend, `/grafana/`→grafana; gzip, timeouts, security headers.
+- [x] Prometheus scrape configs; Grafana datasource + dashboards (API health, scraper pipeline) provisioned from files.
 
 ### Phase 5: CI/CD
-- [ ] `ci.yml`: lint, typecheck, unit tests, `alembic upgrade head` + `alembic check` on Postgres, image builds, compose smoke test with mocked Ollama/Firecrawl.
-- [ ] `release.yml` to GHCR (sha / latest / semver, cache, OCI labels); `docker-compose.prod.yml`; actionlint clean.
+- [x] `ci.yml`: lint, typecheck, unit tests, `alembic upgrade head` + `alembic check` on Postgres, image builds, compose smoke test with mocked Ollama/Firecrawl.
+- [x] `release.yml` to GHCR (sha / latest / semver, cache, OCI labels); `docker-compose.prod.yml`; actionlint clean.
 
 ### Phase 6: hardening + docs
-- [ ] `.gitattributes` (LF), non-root images, README (Mermaid, setup, env reference, troubleshooting), final AUDIT/PLAN/DECISIONS update, Known limitations, evidence, PR.
+- [x] `.gitattributes` (LF), non-root images, README (Mermaid, setup, env reference, troubleshooting), final AUDIT/PLAN/DECISIONS update, Known limitations, evidence, PR.
 
 ## Assumptions
 - Postgres 16; Python 3.12; Node 20 LTS.
