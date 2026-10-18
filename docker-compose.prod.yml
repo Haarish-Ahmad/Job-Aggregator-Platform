@@ -1,0 +1,27 @@
+# Run the prebuilt images published by the release workflow instead of building locally:
+#
+#   docker compose -f docker-compose.yml -f docker-compose.prod.yml pull
+#   docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+#
+# Choose the version with IMAGE_TAG in .env (latest, sha-<short>, or a release such as 1.2.3). If the packages are
+# private, run `docker login ghcr.io` first. Change IMAGE_PREFIX if the repository is hosted under another owner.
+services:
+  backend: &prebuilt
+    image: ${IMAGE_PREFIX:-ghcr.io/haarish-ahmad/job-aggregator-platform}-backend:${IMAGE_TAG:-latest}
+    build: !reset null
+    pull_policy: always
+  scraper:
+    <<: *prebuilt
+    image: ${IMAGE_PREFIX:-ghcr.io/haarish-ahmad/job-aggregator-platform}-scraper:${IMAGE_TAG:-latest}
+  frontend:
+    <<: *prebuilt
+    image: ${IMAGE_PREFIX:-ghcr.io/haarish-ahmad/job-aggregator-platform}-frontend:${IMAGE_TAG:-latest}
+  nginx:
+    <<: *prebuilt
+    image: ${IMAGE_PREFIX:-ghcr.io/haarish-ahmad/job-aggregator-platform}-nginx:${IMAGE_TAG:-latest}
+  prometheus:
+    <<: *prebuilt
+    image: ${IMAGE_PREFIX:-ghcr.io/haarish-ahmad/job-aggregator-platform}-prometheus:${IMAGE_TAG:-latest}
+  grafana:
+    <<: *prebuilt
+    image: ${IMAGE_PREFIX:-ghcr.io/haarish-ahmad/job-aggregator-platform}-grafana:${IMAGE_TAG:-latest}

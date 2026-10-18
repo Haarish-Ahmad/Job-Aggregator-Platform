@@ -1,0 +1,23 @@
+# Alert rules, visible under Alerts in the Prometheus UI (no Alertmanager is bundled).
+groups:
+  - name: platform
+    rules:
+      - alert: TargetDown
+        expr: up == 0
+        for: 2m
+        labels: { severity: critical }
+        annotations: { summary: "{{ $labels.job }} is not reachable by Prometheus" }
+      - alert: ApiServerErrors
+        expr: sum(rate(http_server_errors_total[5m])) / clamp_min(sum(rate(http_requests_total[5m])), 1e-9) > 0.05
+        for: 5m
+        labels: { severity: warning }
+        annotations: { summary: "More than 5% of API responses are 5xx" }
+      - alert: ScraperNotSucceeding
+        expr: time() - scraper_last_success_timestamp_seconds > 2 * 24 * 3600
+        for: 10m
+        labels: { severity: warning }
+        annotations: { summary: "Scraper source {{ $labels.source }} has not completed a run in 2 days" }
+      - alert: ScraperPushFailing
+        expr: increase(scraper_push_batches_total{result="failed"}[1h]) > 0
+        labels: { severity: warning }
+        annotations: { summary: "The scraper could not deliver a batch to the backend" }
