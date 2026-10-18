@@ -1,0 +1,31 @@
+[project]
+name = "scraper"
+version = "0.1.0"
+description = "Career-site scraping module for the job aggregator platform"
+requires-python = ">=3.12"
+dependencies = [
+    "httpx>=0.28",
+    "pydantic>=2.7",
+    "pydantic-settings>=2.3",
+    "tenacity>=9.0",
+    "typer>=0.12",
+    "beautifulsoup4>=4.12",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8", "pytest-httpx>=0.35"]
+
+[project.scripts]
+scraper = "scraper.cli:app"
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+markers = ["integration: hits real network services (deselect with -m 'not integration')"]
+addopts = "-m 'not integration'"
