@@ -4,3 +4,6 @@ __pycache__/
 *.pyc
 .env
 .vscode/
+
+# Self-hosted Firecrawl is an external dependency (own repo), run separately
+/firecrawl/
