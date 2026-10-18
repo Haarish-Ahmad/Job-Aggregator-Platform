@@ -103,3 +103,33 @@ describe("queryFromParams", () => {
     expect(queryFromParams(new URLSearchParams("page=-4&grad_year=abc"))).toMatchObject({ page: 1, grad_year: undefined });
   });
 });
+
+
+/** A minimal matchMedia: `narrow` answers every max-width query. */
+function fakeMatchMedia(narrow: boolean): typeof window.matchMedia {
+  return ((query: string) => ({ matches: narrow && query.includes("max-width"), media: query, addEventListener() {}, removeEventListener() {} })) as unknown as typeof window.matchMedia;
+}
+
+describe("filters on a phone", () => {
+  const original = window.matchMedia;
+  afterEach(() => { window.matchMedia = original; });
+
+  it("start collapsed on a narrow screen and open on a wide one", async () => {
+    jobs.mockResolvedValue({ jobs: [job()], total: 1 });
+    window.matchMedia = fakeMatchMedia(true);
+    const narrow = page();
+    await screen.findByText("Python Developer");
+    expect(narrow.container.querySelector("details")).not.toHaveAttribute("open");
+    narrow.unmount();
+    window.matchMedia = fakeMatchMedia(false);
+    const wide = page();
+    await screen.findByText("Python Developer");
+    expect(wide.container.querySelector("details")).toHaveAttribute("open");
+  });
+
+  it("says when filters are active", async () => {
+    jobs.mockResolvedValue({ jobs: [], total: 0 });
+    renderAt(<Routes><Route path="/" element={<ListingsPage />} /></Routes>, "/?q=python", { auth: false });
+    expect(await screen.findByText("Filters (active)")).toBeInTheDocument();
+  });
+});

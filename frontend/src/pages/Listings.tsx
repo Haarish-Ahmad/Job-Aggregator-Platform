@@ -29,6 +29,10 @@ const TYPES = [
 ];
 const SOURCES = ["", "shine", "internshala", "unstop", "greenhouse", "microsoft", "google", "ycombinator"];
 
+function narrowScreen(): boolean {
+  return typeof window.matchMedia === "function" && window.matchMedia("(max-width: 640px)").matches;
+}
+
 export function queryFromParams(p: URLSearchParams): JobQuery & { page: number } {
   const page = Math.max(1, Number(p.get("page")) || 1);
   const grad = Number(p.get("grad_year"));
@@ -78,6 +82,9 @@ export function ListingsPage() {
   return (
     <>
       <h1>Jobs & internships</h1>
+      {/* On a phone the filters start collapsed so the results are visible; on wider screens they are always open. */}
+      <details className="filter-panel" open={!narrowScreen()}>
+        <summary className="btn">Filters{filtered ? " (active)" : ""}</summary>
       <form className="filters card" onSubmit={onSearch} role="search" aria-label="Filter jobs">
         <label className="grow">
           Search
@@ -130,6 +137,7 @@ export function ListingsPage() {
           </button>
         )}
       </form>
+      </details>
 
       {loading && !data && <Loading label="Loading jobs…" />}
       {error && <ErrorState error={error} onRetry={reload} />}
