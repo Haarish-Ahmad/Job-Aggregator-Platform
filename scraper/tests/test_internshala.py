@@ -66,6 +66,28 @@ def test_normalize_from_listing_fixture():
     assert out["description_text"]
     assert out["employment_type"] == "internship"
     assert out["posted_date"]
+    assert out["company"] == "Attento Technologies Pvt Ltd"  # the employer, not "Internshala"
+
+
+def test_every_fixture_card_yields_its_employer():
+    soup = BeautifulSoup(open("fixtures/internshala_listing.html", errors="ignore").read(), "html.parser")
+    adapter = InternshalaAdapter(client=None, settings=Settings())
+    companies = [adapter.normalize(RawJob(ref=JobRef(external_id="1", url="https://internshala.com/x", hints={}),
+                                          content=str(card)))["company"]
+                 for card in soup.select("div.individual_internship")]
+    assert len(companies) == 50 and all(companies) and "Internshala" not in companies
+    assert len(set(companies)) > 30  # many different employers on one page
+
+
+def test_build_record_uses_the_employer_as_company():
+    from datetime import UTC, datetime
+
+    from scraper.pipeline import build_record
+    soup = BeautifulSoup(open("fixtures/internshala_listing.html", errors="ignore").read(), "html.parser")
+    card = soup.select_one("div.individual_internship")
+    raw = RawJob(ref=JobRef(external_id="1", url="https://internshala.com/x", hints={"title": "T"}), content=str(card))
+    record = build_record(InternshalaAdapter(client=None, settings=Settings()), raw, datetime.now(UTC))
+    assert record.company == "Attento Technologies Pvt Ltd" and record.source == "internshala"
 
 
 def test_category_redirect_is_not_scraped():

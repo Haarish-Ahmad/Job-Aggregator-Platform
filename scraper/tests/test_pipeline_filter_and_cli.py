@@ -1,6 +1,7 @@
 from typer.testing import CliRunner
 
 from scraper import cli
+from scraper import runner as runner_module
 from scraper.adapters.base import SourceAdapter
 from scraper.config import Settings
 from scraper.models import JobRef, RawJob
@@ -40,11 +41,11 @@ def test_pipeline_filters_before_storing(tmp_path):
 def test_cli_passes_query_for_every_source(monkeypatch, tmp_path):
     seen = {}
 
-    def fake_run(adapter, filters, storage, settings, extractor=None):
+    def fake_run(adapter, filters, storage, settings, extractor=None, on_job=None):
         seen["queries"] = filters.queries
         return RunStats()
 
-    monkeypatch.setattr(cli, "run_pipeline", fake_run)
+    monkeypatch.setattr(runner_module, "run_pipeline", fake_run)
     monkeypatch.setenv("OUTPUT_DIR", str(tmp_path))
     runner = CliRunner()
     for source in ("microsoft", "google", "internshala", "ycombinator"):
@@ -59,7 +60,7 @@ def test_cli_uses_each_adapters_own_default_queries(monkeypatch, tmp_path):
     from scraper.adapters import REGISTRY
 
     seen = {}
-    monkeypatch.setattr(cli, "run_pipeline", lambda a, f, st, se, ex=None: (seen.update(q=f.queries), RunStats())[1])
+    monkeypatch.setattr(runner_module, "run_pipeline", lambda a, f, st, se, ex=None, on_job=None: (seen.update(q=f.queries), RunStats())[1])
     monkeypatch.setenv("OUTPUT_DIR", str(tmp_path))
     CliRunner().invoke(cli.app, ["run", "--source", "unstop"])
     assert seen["q"] == REGISTRY["unstop"].default_queries and "software" in seen["q"]

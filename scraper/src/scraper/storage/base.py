@@ -15,6 +15,10 @@ class Storage(ABC):
         """'model|prompt_version' of the stored record's extraction, or None if it has none."""
 
     @abstractmethod
+    def get_record(self, source: str, external_id: str) -> JobRecord | None:
+        """The latest stored record, or None."""
+
+    @abstractmethod
     def save(self, record: JobRecord) -> None: ...
 
     @abstractmethod

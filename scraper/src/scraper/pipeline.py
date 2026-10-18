@@ -1,4 +1,6 @@
 import logging
+import time
+from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from datetime import UTC, datetime
@@ -6,6 +8,7 @@ from datetime import UTC, datetime
 from scraper.adapters.base import SourceAdapter
 from scraper.config import Settings
 from scraper.extraction import OllamaExtractor
+from scraper.metrics import EXTRACTIONS, JOBS, LLM_LATENCY, PAGES
 from scraper.models import FailedJob, JobRecord, JobRef, SearchFilters
 from scraper.preprocess import content_hash
 from scraper.relevance import assess, min_years_from_items
@@ -54,7 +57,12 @@ def process_job(
     failure never loses the job, it is saved without LLM fields and retried on the next run.
     """
     stats = stats or RunStats()
-    raw = adapter.fetch(ref)
+    try:
+        raw = adapter.fetch(ref)
+    except Exception:
+        PAGES.labels(adapter.name, "error").inc()
+        raise
+    PAGES.labels(adapter.name, "ok").inc()
     record = build_record(adapter, raw, datetime.now(UTC))
     verdict = assess(record, software_trusted=adapter.software_trusted)
     if not verdict.ok:
@@ -70,10 +78,14 @@ def process_job(
         return "unchanged"  # same text and already extracted by this model/prompt: skip the LLM too
     if needs_extraction:
         try:
+            started = time.perf_counter()
             record.extraction = extractor.extract(record.title, record.description_text)
+            LLM_LATENCY.observe(time.perf_counter() - started)
+            EXTRACTIONS.labels("ok").inc()
             stats.extracted += 1
         except Exception as exc:
             log.error("extraction failed for %r: %s", record.title, exc)
+            EXTRACTIONS.labels("failed").inc()
             stats.extraction_failed += 1
             storage.save_failure(
                 FailedJob(
@@ -97,7 +109,9 @@ def run(
     storage: Storage,
     settings: Settings,
     extractor: OllamaExtractor | None = None,
+    on_job: Callable[[JobRef, str], None] | None = None,
 ) -> RunStats:
+    """on_job(ref, outcome) is called for every job that ends 'saved' or 'unchanged' (e.g. to push it on)."""
     stats = RunStats()
     refs = adapter.discover(filters)
     stats.discovered = len(refs)
@@ -107,8 +121,12 @@ def run(
         try:
             outcome = process_job(adapter, ref, storage, extractor, stats)
             setattr(stats, outcome, getattr(stats, outcome) + 1)
+            JOBS.labels(adapter.name, outcome).inc()
+            if on_job and outcome in ("saved", "unchanged"):
+                on_job(ref, outcome)
         except Exception as exc:  # one bad URL must not abort the run
             log.error("failed %s: %s", ref.url, exc)
+            JOBS.labels(adapter.name, "failed").inc()
             stats.failed += 1
             storage.save_failure(
                 FailedJob(

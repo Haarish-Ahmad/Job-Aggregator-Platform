@@ -89,3 +89,14 @@ def test_normalize_detects_internship_from_title(adapter):
     job2 = [2, "Policy Specialist"] + [None] * 19
     raw2 = RawJob(ref=JobRef(external_id="2", url="u"), content="", fields={"job": job2})
     assert adapter.normalize(raw2)["employment_type"] == "unknown"
+
+
+def test_normalize_returns_the_employer_brand_not_just_the_source_default():
+    from scraper.adapters.google import GoogleAdapter, _parse_ds1
+    from scraper.config import Settings
+    from scraper.models import JobRef, RawJob
+    jobs = _parse_ds1(open("fixtures/google_listing.html", errors="ignore").read())
+    adapter = GoogleAdapter(client=None, settings=Settings())
+    companies = {adapter.normalize(RawJob(ref=JobRef(external_id="1", url="https://x", hints={}), content="", fields={"job": j}))["company"]
+                 for j in jobs}
+    assert companies == {"Google", "YouTube"}

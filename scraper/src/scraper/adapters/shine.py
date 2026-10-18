@@ -75,6 +75,7 @@ def _line_value(markdown: str, label: str) -> str:
 
 class ShineAdapter(FirecrawlAdapter):
     name = "shine"
+    india_portal = True
     company = "Shine"
     default_queries = [
         "software developer fresher",

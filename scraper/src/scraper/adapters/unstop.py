@@ -88,6 +88,7 @@ def _approved_date(job: dict) -> date | None:
 
 class UnstopAdapter(SourceAdapter):
     name = "unstop"
+    india_portal = True
     company = "Unstop"
     default_queries = [
         "software", "developer", "engineer", "sde", "data", "machine learning",

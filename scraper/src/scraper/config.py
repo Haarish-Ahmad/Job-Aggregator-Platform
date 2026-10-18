@@ -1,5 +1,6 @@
 from pathlib import Path
 
+from pydantic import AliasChoices, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -8,7 +9,7 @@ def _split(value: str) -> list[str]:
 
 
 class Settings(BaseSettings):
-    model_config = SettingsConfigDict(env_file=".env", extra="ignore")
+    model_config = SettingsConfigDict(env_file=".env", extra="ignore", populate_by_name=True)
 
     firecrawl_api_url: str = "http://localhost:3002"
     firecrawl_api_key: str = ""
@@ -31,7 +32,8 @@ class Settings(BaseSettings):
     )
 
     # LLM extraction (Ollama). Small defaults: a 3B model is what fits a 4 GB GPU.
-    ollama_url: str = "http://localhost:11434"
+    # OLLAMA_HOST is the name used across the platform; OLLAMA_URL is still read so old .env files keep working.
+    ollama_host: str = Field("http://localhost:11434", validation_alias=AliasChoices("OLLAMA_HOST", "OLLAMA_URL"))
     ollama_model: str = "qwen2.5:3b"
     ollama_timeout_seconds: float = 180
     ollama_num_ctx: int = 6144
@@ -40,6 +42,20 @@ class Settings(BaseSettings):
 
     output_dir: Path = Path("data")
     max_markdown_chars: int = 20000
+
+    # Pushing results to the backend (scraper run --push / scraper serve).
+    backend_url: str = "http://localhost:8000"
+    ingest_token: str = ""
+    ingest_batch_size: int = 100
+    backend_timeout_seconds: float = 60
+
+    # `scraper serve`: a long-running process that scrapes on a schedule and exposes /metrics and /health.
+    serve_sources: str = "unstop,shine,internshala"
+    serve_limit: int = 300
+    scrape_interval_hours: float = 12
+    run_on_start: bool = True
+    metrics_port: int = 9100
+    alerts_after_run: bool = True
 
     @property
     def query_list(self) -> list[str]:
@@ -52,3 +68,7 @@ class Settings(BaseSettings):
     @property
     def location_list(self) -> list[str]:
         return _split(self.locations)
+
+    @property
+    def serve_source_list(self) -> list[str]:
+        return _split(self.serve_sources)

@@ -32,3 +32,12 @@ def test_location_matches():
     assert location_matches("Bengaluru, India", ["India"])
     assert not location_matches("Dublin", ["India"])
     assert location_matches("Dublin, Ireland", ["dublin"])
+
+
+def test_indian_job_board_wordings_and_more_cities():
+    from scraper.location import in_india
+    for place in ("All India", "Pan India", "Mumbai City", "Navi Mumbai", "Vadodara", "Tiruchirappalli", "Guwahati",
+                  "Secunderabad", "Madurai, Tamil Nadu", "Coimbatore"):
+        assert in_india(place), place
+    for place in ("Indianapolis, IN, US", "Austin, TX", "Remote (US)", "London", "India Street, Springfield, US"):
+        assert not in_india(place), place

@@ -15,6 +15,9 @@ class SourceAdapter(ABC):
     company: str
     # True when the source's own listing is already limited to software roles.
     software_trusted: bool = False
+    # True for job boards that only list Indian opportunities, so a posting with a place that is not
+    # recognisably Indian (a small town) is still treated as being in India.
+    india_portal: bool = False
     # Used when the CLI gets no --query. None means fall back to SEARCH_QUERIES from settings.
     default_queries: list[str] | None = None
 

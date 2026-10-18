@@ -143,6 +143,7 @@ class GoogleAdapter(SourceAdapter):
         )
         return {
             "title": title,
+            "company": company,  # "Google" or a sub-brand such as "YouTube"
             "employment_type": employment_type,
             "employment_type_raw": str(job[20]) if len(job) > 20 else None,
             "work_mode": None,  # not reliably present per-job in this data block

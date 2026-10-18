@@ -67,6 +67,7 @@ class InternshalaAdapter(SourceAdapter):
     name = "internshala"
     company = "Internshala"
     software_trusted = True  # every category above is a software category
+    india_portal = True
     default_queries = ["computer-science", "software-engineering", "data-science", "ai-ml", "machine-learning", "cyber-security"]
 
     def extract_external_id(self, url: str) -> str:
@@ -159,8 +160,9 @@ class InternshalaAdapter(SourceAdapter):
         if not card:
             card = soup
         title = raw.ref.hints.get("title", "Unknown")
-        company = card.select_one(".company-name")
-        company = company.get_text(strip=True) if company else "Unknown"
+        company_el = card.select_one(".company-name")
+        # None (not "Unknown") when absent, so build_record falls back to the source name.
+        company = company_el.get_text(strip=True) if company_el else None
         location_elem = card.select_one(".locations")
         location = [location_elem.get_text(strip=True)] if location_elem else []
         is_actively_hiring = "Actively" in card.get_text()
@@ -192,6 +194,7 @@ class InternshalaAdapter(SourceAdapter):
         description = description_elem.get_text(strip=True) if description_elem else ""
         return {
             "title": title,
+            "company": company,
             "description_text": description,
             "locations": location,
             "work_mode": None,

@@ -22,6 +22,6 @@ REGISTRY: dict[str, type[SourceAdapter]] = {
 def get_adapter(name: str, **kwargs) -> SourceAdapter:
     try:
         cls = REGISTRY[name]
-    except KeyError:
-        raise ValueError(f"Unknown source {name!r}. Available: {', '.join(sorted(REGISTRY))}")
+    except KeyError as exc:
+        raise ValueError(f"Unknown source {name!r}. Available: {', '.join(sorted(REGISTRY))}") from exc
     return cls(**kwargs)

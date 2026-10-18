@@ -22,14 +22,24 @@ def _split_top_level(text: str) -> list[str]:
 
 # Some boards write just 'Bangalore' with no country.
 _INDIAN_CITIES = {
-    "bangalore", "bengaluru", "mumbai", "delhi", "new delhi", "gurgaon", "gurugram", "noida",
-    "hyderabad", "pune", "chennai", "kolkata", "ahmedabad", "kochi", "jaipur", "chandigarh",
-    "indore", "coimbatore", "thiruvananthapuram", "bhubaneswar", "lucknow", "nagpur",
+    "bangalore", "bengaluru", "mumbai", "mumbai city", "navi mumbai", "thane", "delhi", "new delhi", "gurgaon", "gurugram",
+    "noida", "greater noida", "ghaziabad", "faridabad", "hyderabad", "secunderabad", "pune", "chennai", "kolkata",
+    "ahmedabad", "gandhinagar", "vadodara", "surat", "rajkot", "kochi", "cochin", "thiruvananthapuram", "trivandrum",
+    "kozhikode", "calicut", "kannur", "thrissur", "jaipur", "jodhpur", "udaipur", "chandigarh", "mohali", "panchkula",
+    "ludhiana", "amritsar", "jalandhar", "indore", "bhopal", "gwalior", "jabalpur", "coimbatore", "madurai",
+    "tiruchirappalli", "trichy", "salem", "tiruppur", "erode", "vellore", "mysore", "mysuru", "mangalore", "mangaluru",
+    "hubli", "belgaum", "visakhapatnam", "vizag", "vijayawada", "guntur", "tirupati", "bhubaneswar", "cuttack",
+    "lucknow", "kanpur", "agra", "varanasi", "prayagraj", "allahabad", "meerut", "dehradun", "haridwar", "patna",
+    "ranchi", "jamshedpur", "raipur", "guwahati", "nagpur", "nashik", "aurangabad", "kolhapur", "goa", "panaji",
+    "pondicherry", "puducherry", "srinagar", "jammu",
 }
 _INDIAN_STATES = {
     "karnataka", "ka", "maharashtra", "mh", "telangana", "tg", "ts", "delhi", "dl", "haryana",
     "hr", "tamil nadu", "tn", "uttar pradesh", "up", "gujarat", "gj", "west bengal", "wb", "kerala", "kl",
+    "rajasthan", "punjab", "madhya pradesh", "andhra pradesh", "odisha", "bihar", "jharkhand", "assam",
 }
+# Whole-country wordings used by Indian job boards.
+_INDIA_WORDS = {"in", "india", "all india", "pan india", "across india", "anywhere in india"}
 
 
 def _is_indian_city(part: str) -> bool:
@@ -54,7 +64,7 @@ def in_india(location: str) -> bool:
     'Remote - India', 'South East Asia & India'. Plain 'Remote (US)' is not India.
     """
     return any(
-        _is_indian_city(part) or any(c in ("IN", "India") or c.endswith("& India") for c in _countries(part))
+        _is_indian_city(part) or any(c == "IN" or c.lower() in _INDIA_WORDS - {"in"} or c.endswith("& India") for c in _countries(part))
         for part in _split_top_level(location)
     )
 

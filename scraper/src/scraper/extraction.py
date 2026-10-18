@@ -117,7 +117,7 @@ class OllamaExtractor:
     )
     def _chat(self, title: str, text: str) -> str:
         resp = self._client.post(
-            f"{self.settings.ollama_url.rstrip('/')}/api/chat",
+            f"{self.settings.ollama_host.rstrip('/')}/api/chat",
             json={
                 "model": self.settings.ollama_model,
                 "stream": False,
