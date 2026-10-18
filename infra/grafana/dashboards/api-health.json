@@ -97,7 +97,7 @@
       "gridPos": {
         "x": 4,
         "y": 0,
-        "w": 5,
+        "w": 4,
         "h": 4
       },
       "targets": [
@@ -114,7 +114,11 @@
       ],
       "fieldConfig": {
         "defaults": {
-          "unit": "reqps"
+          "unit": "reqps",
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "blue"
+          }
         },
         "overrides": []
       },
@@ -139,9 +143,9 @@
         "uid": "prometheus"
       },
       "gridPos": {
-        "x": 9,
+        "x": 8,
         "y": 0,
-        "w": 5,
+        "w": 4,
         "h": 4
       },
       "targets": [
@@ -150,7 +154,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "sum(rate(http_server_errors_total[5m])) / clamp_min(sum(rate(http_requests_total[5m])), 1e-9)",
+          "expr": "(sum(rate(http_server_errors_total[5m])) or vector(0)) / clamp_min(sum(rate(http_requests_total[5m])), 1e-9)",
           "legendFormat": "",
           "refId": "A",
           "instant": true
@@ -200,9 +204,9 @@
         "uid": "prometheus"
       },
       "gridPos": {
-        "x": 14,
+        "x": 12,
         "y": 0,
-        "w": 5,
+        "w": 4,
         "h": 4
       },
       "targets": [
@@ -255,15 +259,15 @@
     {
       "id": 5,
       "type": "stat",
-      "title": "Active job postings",
+      "title": "Active postings",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
       },
       "gridPos": {
-        "x": 19,
+        "x": 16,
         "y": 0,
-        "w": 3,
+        "w": 4,
         "h": 4
       },
       "targets": [
@@ -279,7 +283,12 @@
         }
       ],
       "fieldConfig": {
-        "defaults": {},
+        "defaults": {
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "blue"
+          }
+        },
         "overrides": []
       },
       "options": {
@@ -303,9 +312,9 @@
         "uid": "prometheus"
       },
       "gridPos": {
-        "x": 22,
+        "x": 20,
         "y": 0,
-        "w": 2,
+        "w": 4,
         "h": 4
       },
       "targets": [
@@ -321,7 +330,12 @@
         }
       ],
       "fieldConfig": {
-        "defaults": {},
+        "defaults": {
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "blue"
+          }
+        },
         "overrides": []
       },
       "options": {

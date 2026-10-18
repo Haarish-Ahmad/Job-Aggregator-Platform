@@ -114,6 +114,10 @@
       ],
       "fieldConfig": {
         "defaults": {
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "blue"
+          },
           "mappings": [
             {
               "type": "value",
@@ -162,14 +166,19 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "sum(increase(scraper_jobs_total{outcome=\"saved\"}[24h]))",
+          "expr": "sum(increase(scraper_jobs_total{outcome=\"saved\"}[24h])) or vector(0)",
           "legendFormat": "",
           "refId": "A",
           "instant": true
         }
       ],
       "fieldConfig": {
-        "defaults": {},
+        "defaults": {
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "blue"
+          }
+        },
         "overrides": []
       },
       "options": {
@@ -204,7 +213,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "sum(increase(scraper_jobs_total{outcome=\"failed\"}[24h]))",
+          "expr": "sum(increase(scraper_jobs_total{outcome=\"failed\"}[24h])) or vector(0)",
           "legendFormat": "",
           "refId": "A",
           "instant": true
@@ -271,7 +280,12 @@
         }
       ],
       "fieldConfig": {
-        "defaults": {},
+        "defaults": {
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "blue"
+          }
+        },
         "overrides": []
       },
       "options": {
@@ -306,7 +320,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "sum(increase(scraper_push_records_total{status=\"rejected\"}[24h]))",
+          "expr": "sum(increase(scraper_push_records_total{status=\"rejected\"}[24h])) or vector(0)",
           "legendFormat": "",
           "refId": "A",
           "instant": true
@@ -734,8 +748,19 @@
       "options": {},
       "transformations": [
         {
-          "id": "labelsToFields",
-          "options": {}
+          "id": "organize",
+          "options": {
+            "excludeByName": {
+              "Time": true,
+              "instance": true,
+              "job": true,
+              "__name__": true
+            },
+            "renameByName": {
+              "Value": "Seconds since last success",
+              "source": "Source"
+            }
+          }
         }
       ]
     },

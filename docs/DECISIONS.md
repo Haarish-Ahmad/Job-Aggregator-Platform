@@ -62,3 +62,4 @@ Choices made without a team decision, newest last. Each says what, why, and how 
 - Actions are pinned to commit SHAs (the version is in a comment). Base images are pinned to a version tag.
 - `APP_ENV` defaults to `production` (D10); the compose file sets it explicitly.
 - The email-alert digest is sent once per scrape cycle (not per ingest batch) to limit noise.
+- Grafana's dashboards are baked into the image at `/etc/grafana/dashboards`, deliberately **not** under `/var/lib/grafana`: that path is the data volume, which hides image contents once it exists, so dashboard updates would never reach an existing deployment (found by rebuilding the image and seeing the old dashboards).
