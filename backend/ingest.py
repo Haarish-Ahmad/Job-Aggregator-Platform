@@ -8,7 +8,7 @@ import logging
 from datetime import datetime
 from urllib.parse import urlsplit
 
-from sqlalchemy import func, select
+from sqlalchemy import func, select, text
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from sqlalchemy.orm import Session
 
@@ -124,6 +124,17 @@ def _upsert(db: Session, item: jobsIn) -> tuple[Status, int | None]:
     db.add(job)
     db.flush()
     return "inserted", job.id
+
+
+def deactivate_stale(db: Session, days: int) -> int:
+    """Mark scraped postings not seen for `days` days as inactive; returns how many. Hand-added jobs are left alone."""
+    result = db.execute(
+        text("""UPDATE job_postings SET is_active = false
+                WHERE is_active AND source IS NOT NULL AND last_seen_at < now() - make_interval(days => :days)"""),
+        {"days": days},
+    )
+    db.commit()
+    return getattr(result, "rowcount", 0)
 
 
 def ingest(db: Session, items: list[jobsIn]) -> ingestionResult:

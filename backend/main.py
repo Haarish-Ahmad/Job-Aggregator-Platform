@@ -11,7 +11,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from matching import compute_matches, save_matches
 from config import get_settings
 from deps import get_current_user,ingest_auth
-from ingest import ingest,make_hash  # noqa: F401  (make_hash re-exported: it used to live here)
+from ingest import deactivate_stale,ingest,make_hash  # noqa: F401  (make_hash re-exported: it used to live here)
 from metrics import MetricsMiddleware,metrics_response,INGEST_RECORDS
 import alerts
 import analytics
@@ -96,6 +96,11 @@ def get_jobs(data:bulkjobs,auth=Depends(ingest_auth),db:Session=Depends(get_db))
     for status,n in (("inserted",result.inserted),("updated",result.updated),("unchanged",result.skipped),("rejected",result.rejected)):
         INGEST_RECORDS.labels(status).inc(n)
     return result
+
+@app.post("/internal/maintenance/deactivate-stale")
+def stale_postings(days:int|None=Query(default=None,ge=1,le=3650),auth=Depends(ingest_auth),db:Session=Depends(get_db)):
+    """Retire scraped postings the scraper has not seen for `days` (default STALE_DAYS)."""
+    return {"deactivated":deactivate_stale(db,days or settings.stale_days)}
 
 def _like(value:str)->str:
     """Escape LIKE wildcards so a search for '%' or '_' matches literally."""

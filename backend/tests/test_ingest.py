@@ -191,3 +191,19 @@ def test_legacy_payload_dedups_on_company_title_location(client):
 def test_admin_cookie_and_token_can_both_ingest_the_same_data(admin, client):
     post(admin, [job()], headers={})
     assert statuses(post(client, [job()])) == ["unchanged"]
+
+
+# --- stale postings (freshness)
+def test_deactivate_stale_endpoint_retires_only_old_scraped_postings(client):
+    post(client, [job(1), job(2), {"company_name": "A", "title": "Manual", "apply_url": "https://a.com/m"}])
+    with engine.begin() as c:
+        c.execute(text("UPDATE job_postings SET last_seen_at = now() - interval '20 days' WHERE title IN ('Software Engineer 1', 'Manual')"))
+    r = client.post("/internal/maintenance/deactivate-stale", headers=INGEST_HEADERS)
+    assert r.status_code == 200 and r.json() == {"deactivated": 1}
+    assert count("SELECT is_active FROM job_postings WHERE title = 'Software Engineer 1'") is False
+    assert count("SELECT is_active FROM job_postings WHERE title = 'Manual'") is True
+    assert client.post("/internal/maintenance/deactivate-stale", params={"days": 0}, headers=INGEST_HEADERS).status_code == 422
+
+
+def test_deactivate_stale_needs_credentials(client):
+    assert client.post("/internal/maintenance/deactivate-stale").status_code == 401

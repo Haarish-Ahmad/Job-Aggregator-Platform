@@ -8,11 +8,12 @@ import argparse
 import logging
 import sys
 
-from sqlalchemy import select, text
+from sqlalchemy import select
 from werkzeug.security import generate_password_hash
 
 from config import get_settings
 from db import session_local
+from ingest import deactivate_stale as retire_stale_postings
 from models import Students
 
 log = logging.getLogger("cli")
@@ -44,13 +45,8 @@ def bootstrap_admin() -> int:
 def deactivate_stale() -> int:
     days = get_settings().stale_days
     with session_local() as db:
-        result = db.execute(
-            text("""UPDATE job_postings SET is_active = false
-                    WHERE is_active AND source IS NOT NULL AND last_seen_at < now() - make_interval(days => :days)"""),
-            {"days": days},
-        )
-        db.commit()
-    log.info("deactivated %d posting(s) not seen for %d days", getattr(result, "rowcount", 0), days)
+        count = retire_stale_postings(db, days)
+    log.info("deactivated %d posting(s) not seen for %d days", count, days)
     return 0
 
 
