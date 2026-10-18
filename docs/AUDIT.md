@@ -42,7 +42,7 @@ schemas, `testcases.md`); this branch adds the scraper and a merge.
 - **Stack:** FastAPI, SQLAlchemy 2 (sync), PostgreSQL via psycopg2, Alembic, Starlette `SessionMiddleware`
   (signed cookie), `werkzeug` password hashing.
 - **Auth:** cookie session (`session=…`, HttpOnly, SameSite=Lax, 12 h). Roles: `student` (default) and `admin`.
-  There is **no API to create an admin** (see B6).
+  There is **no API to create an admin** (see B5).
 - **Config:** only `SECRET_KEY` is read from the environment (`main.py:15`). The DB URL is hardcoded
   (`db.py:4`: `postgresql://jobs:jobs@localhost:5432/jobs`), so the backend cannot reach a `db` container as is.
 - **Run:** `alembic upgrade head` then `uvicorn main:app` from `backend/` (imports are top-level: `from db import …`),
