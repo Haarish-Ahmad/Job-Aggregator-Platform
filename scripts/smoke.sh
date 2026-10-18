@@ -6,6 +6,7 @@
 #
 # It checks: every container healthy, nginx routing, the frontend, API health, auth, Prometheus targets,
 # Grafana provisioning, a scraper pipeline run (twice: no duplicates), and an alert email reaching Mailpit.
+# shellcheck disable=SC2015  # "cond && ok || bad" is deliberate: ok and bad always succeed
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
@@ -111,7 +112,9 @@ import os, httpx
 r = httpx.post("http://backend:8000/internal/alerts/run", headers={"X-Ingest-Token": os.environ["INGEST_TOKEN"]}, timeout=30)
 r.raise_for_status(); print(r.json())
 PY
-mail=$(retry 10 curl -fsS "http://localhost:$MAIL_PORT/api/v1/messages" && true)
+# Mailpit receives the message asynchronously: wait until it lists one.
+mail_arrived() { curl -fsS "http://localhost:$MAIL_PORT/api/v1/messages" | grep -q 'smoke@college.edu'; }
+retry 10 mail_arrived || true
 contains "an email for smoke@college.edu arrived" 'smoke@college.edu' "$(curl -fsS "http://localhost:$MAIL_PORT/api/v1/messages")"
 
 echo "== monitoring"

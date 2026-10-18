@@ -113,9 +113,28 @@ jobs:
       - run: npm test
       - run: npm run build
 
+  config:
+    name: Config (env variables, compose files, shell scripts)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - name: Every variable is documented in .env.example and wired into compose
+        run: python3 scripts/check_env.py
+      - name: Compose files render, and refuse to start without secrets
+        run: |
+          printf 'POSTGRES_PASSWORD=x\nSECRET_KEY=x\nINGEST_TOKEN=x\nGRAFANA_ADMIN_PASSWORD=x\n' > "$RUNNER_TEMP/ci.env"
+          docker compose --env-file "$RUNNER_TEMP/ci.env" config -q
+          docker compose -f docker-compose.yml -f docker-compose.prod.yml --env-file "$RUNNER_TEMP/ci.env" config -q
+          if docker compose --env-file /dev/null config -q 2>/dev/null; then echo "compose must require the secrets"; exit 1; fi
+      - name: Shell scripts pass shellcheck
+        run: shellcheck scripts/smoke.sh backend/docker-entrypoint.sh frontend/docker-entrypoint.sh
+      - name: No Windows line endings in files that run in Linux containers
+        run: |
+          if git grep -Il $'\r' -- '*.sh' '*Dockerfile' '*.yml' '*.yaml' '*.conf'; then echo "CRLF found (see .gitattributes)"; exit 1; fi
+
   images:
     name: Build image (${{ matrix.service }})
-    needs: [backend, scraper, integration, frontend]
+    needs: [backend, scraper, integration, frontend, config]
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
