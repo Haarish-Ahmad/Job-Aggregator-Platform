@@ -8,6 +8,7 @@ import argparse
 import logging
 import sys
 
+from email_validator import EmailNotValidError, validate_email
 from sqlalchemy import select
 from werkzeug.security import generate_password_hash
 
@@ -24,6 +25,12 @@ def bootstrap_admin() -> int:
     if not (settings.admin_email and settings.admin_password):
         log.info("ADMIN_EMAIL / ADMIN_PASSWORD not set; skipping admin bootstrap")
         return 0
+    try:
+        # Same check the login form applies: an admin whose address it rejects could never sign in.
+        validate_email(settings.admin_email, check_deliverability=False)
+    except EmailNotValidError as exc:
+        log.error("ADMIN_EMAIL %r is not usable (%s)", settings.admin_email, exc)
+        return 1
     if len(settings.admin_password) < 8:
         log.error("ADMIN_PASSWORD must be at least 8 characters")
         return 1

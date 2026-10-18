@@ -27,7 +27,7 @@ def test_cycle_runs_every_source_and_records_results(tmp_path, monkeypatch):
     state = ServeState()
 
     def runner(source, settings, client, filters, **kw):
-        assert kw["push"] is True and kw["extract"] is False and filters.limit == settings.serve_limit
+        assert kw["push"] is True and kw["extract"] is False and filters.limit == settings.serve_limit  # extraction is opt-in
         return ok_runner(source, settings, client, filters)
 
     run_cycle(settings(tmp_path), state, runner=runner)
@@ -118,3 +118,15 @@ def test_serve_can_wait_before_the_first_run(tmp_path):
 
 def test_handler_class_is_built_per_state():
     assert make_handler(ServeState()) is not make_handler(ServeState())
+
+
+def test_extraction_in_serve_is_opt_in(tmp_path, monkeypatch):
+    monkeypatch.setattr(serve_module, "after_cycle", lambda s, c=None: None)
+    seen = []
+
+    def runner(source, settings, client, filters, **kw):
+        seen.append(kw["extract"])
+        return ok_runner(source, settings, client, filters)
+
+    run_cycle(settings(tmp_path, serve_extract=True), ServeState(), runner=runner)
+    assert seen == [True, True]

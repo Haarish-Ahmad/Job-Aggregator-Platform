@@ -2,7 +2,7 @@ FROM python:3.12-slim AS build
 WORKDIR /build
 COPY pyproject.toml ./
 COPY src ./src
-RUN pip install --no-cache-dir --prefix=/install .
+RUN pip install --no-cache-dir --default-timeout=120 --retries=8 --prefix=/install .
 
 FROM python:3.12-slim
 LABEL org.opencontainers.image.title="job-aggregator-scraper"

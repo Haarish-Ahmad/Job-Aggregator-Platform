@@ -78,3 +78,11 @@ def test_main_dispatches_commands(env):
     assert cli.main(["bootstrap-admin"]) == 0
     with pytest.raises(SystemExit):
         cli.main(["nonsense"])
+
+
+@pytest.mark.parametrize("email", ["admin@example.test", "admin@localhost", "not-an-email"])
+def test_bootstrap_rejects_an_email_the_login_form_would_reject(env, client, email):
+    env(admin_email=email, admin_password="goodpassword1")
+    assert cli.bootstrap_admin() == 1
+    with engine.connect() as c:
+        assert c.execute(text("SELECT count(*) FROM students")).scalar() == 0

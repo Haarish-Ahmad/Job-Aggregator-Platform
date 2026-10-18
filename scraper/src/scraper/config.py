@@ -52,6 +52,8 @@ class Settings(BaseSettings):
     # `scraper serve`: a long-running process that scrapes on a schedule and exposes /metrics and /health.
     serve_sources: str = "unstop,shine,internshala"
     serve_limit: int = 300
+    # Run Ollama extraction during `serve` (needs OLLAMA_HOST reachable). Off by default: it is slow on modest hardware.
+    serve_extract: bool = False
     scrape_interval_hours: float = 12
     run_on_start: bool = True
     metrics_port: int = 9100
