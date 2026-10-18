@@ -7,6 +7,22 @@ Off-campus jobs and internships for students. The platform **scrapes** job board
 
 One command starts everything: `docker compose up -d --build`.
 
+## Screenshots
+
+Taken from the running stack with live data (not mock-ups).
+
+| Jobs (desktop) | Jobs (phone) |
+|---|---|
+| ![Jobs list with filters, skills and freshness badges](docs/screenshots/listings.png) | ![Jobs list on a phone, filters collapsed](docs/screenshots/mobile.png) |
+
+| Skills in demand | Job detail |
+|---|---|
+| ![Most requested skills](docs/screenshots/analytics.png) | ![Job detail with apply link](docs/screenshots/detail.png) |
+
+| Grafana: API health | Grafana: scraper pipeline |
+|---|---|
+| ![API health dashboard](docs/screenshots/grafana-api.png) | ![Scraper pipeline dashboard](docs/screenshots/grafana-scraper.png) |
+
 ## Architecture
 
 ```mermaid
@@ -119,7 +135,7 @@ Behind HTTPS set `PUBLIC_URL=https://…` and `SESSION_COOKIE_SECURE=true`. Repl
 docker run -d --name jobs-test-pg -e POSTGRES_USER=jobs -e POSTGRES_PASSWORD=jobs -e POSTGRES_DB=jobs_test -p 5432:5432 postgres:16-alpine
 python3.12 -m venv .venv && . .venv/bin/activate
 pip install -r requirements-dev.txt -e "scraper[dev]"
-cd backend && APP_ENV=dev pytest                      # 150+ tests, including all 42 cases from testcases.md
+cd backend && APP_ENV=dev pytest                      # 158 tests, including all 42 cases from testcases.md
 ruff check . && mypy --ignore-missing-imports --explicit-package-bases --exclude 'alembic|tests' .
 APP_ENV=dev DATABASE_URL=postgresql://jobs:jobs@localhost:5432/jobs alembic upgrade head
 APP_ENV=dev DATABASE_URL=postgresql://jobs:jobs@localhost:5432/jobs uvicorn main:app --reload   # http://localhost:8000/docs
@@ -140,7 +156,7 @@ npm run lint && npm run typecheck && npm test && npm run build
 ### Whole-stack smoke test
 
 ```bash
-bash scripts/smoke.sh        # builds and starts a separate stack, checks ~40 things, tears it down
+bash scripts/smoke.sh        # builds and starts a separate stack, checks about 35 things, tears it down
 KEEP=1 bash scripts/smoke.sh # leave it running on http://localhost:8080
 ```
 
