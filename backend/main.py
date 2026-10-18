@@ -1,43 +1,47 @@
-from fastapi import FastAPI,Depends,HTTPException,Request
-from sqlalchemy.orm import Session
-from sqlalchemy import select
+from typing import Any,Callable,Literal
+from fastapi import FastAPI,Depends,HTTPException,Query,Request,Response
+from sqlalchemy.orm import Session,contains_eager
+from sqlalchemy import any_,literal,select,func,or_,text
 from db import get_db
 from starlette.middleware.sessions import SessionMiddleware
 from models import Companies,Students,Job
 from werkzeug.security import generate_password_hash,check_password_hash
-from schemas import CompanyDetails, CompanyOut, StudentDetails, StudentOut, LoginDetails, StudentUpdate, jobsIn, JobOut, ingestionResult, bulkjobs, MatchOut
+from schemas import CompanyDetails, CompanyOut, StudentDetails, StudentOut, LoginDetails, StudentUpdate, JobOut, ingestionResult, bulkjobs, MatchOut
 from fastapi.middleware.cors import CORSMiddleware
-import hashlib
 from matching import compute_matches, save_matches
-import os
+from config import get_settings
+from deps import get_current_user,ingest_auth
+from ingest import ingest,make_hash  # noqa: F401  (make_hash re-exported: it used to live here)
+from metrics import MetricsMiddleware,metrics_response,INGEST_RECORDS
+import alerts
+import analytics
 
-app=FastAPI(title="Job Aggregator Platform")
-app.add_middleware(SessionMiddleware,secret_key=os.getenv("SECRET_KEY","dev-secret-change-me"),
-    max_age=60 * 60 * 12,same_site="lax",https_only=False)
+settings=get_settings()
+app=FastAPI(title="Job Aggregator Platform",root_path=settings.root_path)
+app.add_middleware(SessionMiddleware,secret_key=settings.secret_key,
+    max_age=60 * 60 * 12,same_site="lax",https_only=settings.session_cookie_secure)
 
-app.add_middleware(CORSMiddleware,allow_origins=["http://localhost:5173"],allow_credentials=True,
-    allow_methods=["*"],allow_headers=["*"])
+app.add_middleware(CORSMiddleware,allow_origins=settings.cors_origin_list,allow_credentials=True,
+    allow_methods=["*"],allow_headers=["*"],expose_headers=["X-Total-Count"])
+app.add_middleware(MetricsMiddleware)
 
-def get_current_user(request:Request,db:Session=Depends(get_db)):
-    student_id=request.session.get('student_id')
-    if not student_id:
-        raise HTTPException(status_code=401,detail='Not Logged in')
-    student=db.get(Students,student_id)
-    if not student:
-        request.session.clear()
-        raise HTTPException(status_code=401, detail="User not found")
-    return student
-
-def make_hash(company: str, title: str, location: str | None) -> str:
-    raw = f"{company}|{title}|{location or ''}".lower().strip()
-    return hashlib.sha256(raw.encode()).hexdigest()
+app.include_router(alerts.router)
+app.include_router(analytics.router)
 
 @app.get("/health")
-def check_health():
-    return {'status':'ok'}
+def check_health(db:Session=Depends(get_db)):
+    try:
+        db.execute(text("SELECT 1"))
+    except Exception:
+        raise HTTPException(status_code=503,detail="database unavailable") from None
+    return {'status':'ok','db':'ok'}
+
+@app.get("/metrics",include_in_schema=False)
+def metrics():
+    return metrics_response()
 
 @app.post("/company",response_model=CompanyOut,status_code=201)
-def company_create(data:CompanyDetails,db:Session=Depends(get_db)):
+def company_create(data:CompanyDetails,user:Students=Depends(get_current_user),db:Session=Depends(get_db)):
     if db.scalars(select(Companies).where(Companies.company_name==data.company_name)).first():
         raise HTTPException(status_code=409,detail="Company already exist")
     c=Companies(**data.model_dump())
@@ -47,12 +51,12 @@ def company_create(data:CompanyDetails,db:Session=Depends(get_db)):
     return c
 
 @app.get("/companies",response_model=list[CompanyOut])
-def list_company(db:Session=Depends(get_db)):
+def list_company(user:Students=Depends(get_current_user),db:Session=Depends(get_db)):
     return db.scalars(select(Companies)).all()
 
 @app.post("/auth/register",response_model=StudentOut,status_code=201)
 def student_register(data:StudentDetails,db:Session=Depends(get_db)):
-    if db.scalars(select(Students).where(data.email==Students.email)).first():
+    if db.scalars(select(Students).where(Students.email==data.email)).first():
         raise HTTPException(status_code=409,detail="Student Exists")
     password_hash=generate_password_hash(data.password)
     student=Students(**data.model_dump(exclude={"password"}),password_hash=password_hash)
@@ -61,9 +65,9 @@ def student_register(data:StudentDetails,db:Session=Depends(get_db)):
     db.refresh(student)
     return student
 
-@app.post("/auth/login",response_model=StudentOut)    
+@app.post("/auth/login",response_model=StudentOut)
 def login(data: LoginDetails,request: Request,db:Session=Depends(get_db)):
-    user=db.scalars(select(Students).where(data.email==Students.email)).first()
+    user=db.scalars(select(Students).where(Students.email==data.email)).first()
     if not user or not check_password_hash(user.password_hash,data.password):
         raise HTTPException(status_code=401,detail="Invalid user account or password")
     request.session["student_id"]=user.id
@@ -84,64 +88,73 @@ def update_profile(data:StudentUpdate,user:Students=Depends(get_current_user),db
         setattr(user,field,val)
     db.commit()
     db.refresh(user)
-    return user    
+    return user
 
 @app.post("/internal/jobs",response_model=ingestionResult)
-def get_jobs(data:bulkjobs,user:Students=Depends(get_current_user),db:Session=Depends(get_db)):
-    if user.role!="admin":
-        raise HTTPException(status_code=403,detail="Method not allowed")
-    inserted=skipped=0
-    for item in data.jobs:
-        company=db.scalars(select(Companies).where(item.company_name==Companies.company_name)).first() 
-        if not company:
-            company=Companies(company_name=item.company_name,careers_url=item.apply_url,description=item.description)
-            db.add(company)
-            db.flush()
-        h=make_hash(item.company_name,item.title,item.location)
-        if db.scalars(select(Job).where(Job.content_hash==h)).first():
-            skipped+=1
-            continue   
-        db.add(Job(company_id=company.id,
-            title=item.title,
-            description=item.description,
-            location=item.location,
-            job_type=item.job_type,
-            min_cgpa=item.min_cgpa,
-            allowed_branches=item.allowed_branches,
-            allowed_grads=item.allowed_grads,
-            necessary_skills=item.required_skills,
-            apply_url=item.apply_url,
-            content_hash=h,
-            deadline_at=item.deadline))  
-        inserted+=1
-    db.commit()
-    return ingestionResult(inserted=inserted,skipped=skipped)
+def get_jobs(data:bulkjobs,auth=Depends(ingest_auth),db:Session=Depends(get_db)):
+    result=ingest(db,data.jobs)
+    for status,n in (("inserted",result.inserted),("updated",result.updated),("unchanged",result.skipped),("rejected",result.rejected)):
+        INGEST_RECORDS.labels(status).inc(n)
+    return result
 
-@app.get("/jobs",response_model=list[JobOut])  
-def jobs(q: str | None = None,company_id: int | None = None,job_type: str | None = None,active_only: bool = True,limit: int = 50,offset: int = 0,user: Students = Depends(get_current_user),db: Session = Depends(get_db)):
-    query=select(Job)
+def _like(value:str)->str:
+    """Escape LIKE wildcards so a search for '%' or '_' matches literally."""
+    return "%"+value.replace("\\","\\\\").replace("%","\\%").replace("_","\\_")+"%"
+
+SORTS:dict[str,Callable[[],tuple[Any,...]]]={
+    "newest":lambda: (Job.scraped_at.desc(),Job.id.desc()),
+    "oldest":lambda: (Job.scraped_at.asc(),Job.id.asc()),
+    "deadline":lambda: (Job.deadline_at.asc().nulls_last(),Job.id.desc()),
+    "title":lambda: (func.lower(Job.title).asc(),Job.id.asc()),
+}
+
+@app.get("/jobs",response_model=list[JobOut])
+def jobs(response:Response,q: str | None = None,company_id: int | None = None,job_type: str | None = None,active_only: bool = True,
+    limit: int = Query(50,ge=1),offset: int = Query(0,ge=0),
+    location: str | None = None,skill: str | None = None,grad_year: int | None = None,source: str | None = None,
+    scope: Literal["all","india","remote","india_remote"] = "all",hide_expired: bool = False,
+    sort: Literal["newest","oldest","deadline","title"] = "newest",
+    user: Students = Depends(get_current_user),db: Session = Depends(get_db)):
+    query=select(Job).join(Job.company).options(contains_eager(Job.company))
     if q:
-        query=query.where(Job.title.ilike(f"%{q}%"))
+        query=query.where(or_(Job.title.ilike(_like(q),escape="\\"),Companies.company_name.ilike(_like(q),escape="\\")))
     if company_id:
         query=query.where(Job.company_id==company_id)
     if job_type:
         query=query.where(Job.job_type==job_type)
     if active_only:
-        query=query.where(Job.is_active.is_(True))   
-    query=query.order_by(Job.scraped_at.desc()).limit(min(limit, 100)).offset(offset)  
-    return db.scalars(query).all()  
+        query=query.where(Job.is_active.is_(True))
+    if hide_expired:
+        query=query.where(or_(Job.deadline_at.is_(None),Job.deadline_at>=func.current_date()))
+    if location:
+        query=query.where(Job.location.ilike(_like(location),escape="\\"))
+    if skill:
+        query=query.where(literal(skill.strip().lower())==any_(Job.necessary_skills))
+    if grad_year:
+        query=query.where(or_(func.coalesce(func.cardinality(Job.allowed_grads),0)==0,literal(grad_year)==any_(Job.allowed_grads)))
+    if source:
+        query=query.where(Job.source==source)
+    if scope=="india":
+        query=query.where(Job.is_india.is_(True))
+    elif scope=="remote":
+        query=query.where(Job.is_remote.is_(True))
+    elif scope=="india_remote":
+        query=query.where(or_(Job.is_india.is_(True),Job.is_remote.is_(True)))
+    response.headers["X-Total-Count"]=str(db.scalar(select(func.count()).select_from(query.order_by(None).subquery())))
+    query=query.order_by(*SORTS[sort]()).limit(min(limit, 100)).offset(offset)
+    return db.scalars(query).unique().all()
 
 @app.get("/jobs/{job_id}",response_model=JobOut)
-def get_job_with_id(job_id:int,db:Session=Depends(get_db)):
+def get_job_with_id(job_id:int,user:Students=Depends(get_current_user),db:Session=Depends(get_db)):
     job=db.get(Job,job_id)
     if not job:
         raise HTTPException(status_code=404,detail="job not found")
     return job
 
 @app.get("/me/matches",response_model=list[MatchOut])
-def get_matches(user:Students=Depends(get_current_user),min_score:float=0,db:Session=Depends(get_db)):
+def get_matches(user:Students=Depends(get_current_user),min_score:float=0,include_unmatched:bool=False,db:Session=Depends(get_db)):
     result=compute_matches(user,db)
     save_matches(user,result,db)
     db.commit()
-    return [{"score":s,"job":j} for j,s in result if s>=min_score]
-
+    # A job that shares none of the student's skills (0%) is not a match, unless asked for.
+    return [{"score":s,"job":j} for j,s in result if s>=min_score and (include_unmatched or s>0)]
