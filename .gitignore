@@ -25,3 +25,6 @@ data/
 .coverage
 htmlcov/
 .mypy_cache/
+.smoke.env
+.env.*
+!.env.example
