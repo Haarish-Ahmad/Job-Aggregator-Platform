@@ -145,3 +145,27 @@ def test_self_heals_after_a_failed_push(settings, backend, student):
     stats, push, _ = run_source("shine", settings, FakeFirecrawl(), FILTERS, extract=False, push=True, backend_client=backend)
     assert stats.unchanged == 2 and push.inserted == 2
     assert len(student.get("/jobs").json()) == 2
+
+
+def test_turning_extraction_on_later_reaches_the_backend(settings, backend, student):
+    """First scrape without the LLM, later with it: the same text, but the backend must receive the new skills and years."""
+    _, first, _ = run_source("shine", settings, FakeFirecrawl(), FILTERS, extract=False, push=True, backend_client=backend)
+    assert first.inserted == 2
+    before = next(j for j in student.get("/jobs").json() if j["external_id"] == "19485428")
+    assert before["allowed_grads"] == []
+
+    stats, second, _ = scrape(settings, backend)  # extraction on this time
+    assert stats.extracted == 2 and second.updated == 2 and second.inserted == 0
+    after = next(j for j in student.get("/jobs").json() if j["external_id"] == "19485428")
+    assert after["id"] == before["id"] and after["allowed_grads"] == [2026] and after["work_mode"] == "remote"
+
+
+def test_a_rerun_with_nothing_changed_does_not_touch_the_rows(settings, backend, student):
+    """Re-sending everything every run is what keeps last_seen_at fresh, but it must not rewrite unchanged rows."""
+    scrape(settings, backend)
+    before = {j["id"]: j for j in student.get("/jobs").json()}
+    stats, push, _ = scrape(settings, backend)
+    assert stats.unchanged == 2 and push.unchanged == 2 and push.updated == 0
+    after = {j["id"]: j for j in student.get("/jobs").json()}
+    assert all(after[i]["updated_at"] == before[i]["updated_at"] for i in before)  # content untouched
+    assert all(after[i]["last_seen_at"] > before[i]["last_seen_at"] for i in before)  # but seen again

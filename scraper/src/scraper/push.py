@@ -5,6 +5,8 @@ column sizes (the backend also checks them, per record, but a record should rare
 BackendPusher batches records, retries transport errors, and turns the backend's per-record answers into stats
 and dead-letter entries, so one bad record never stops a run.
 """
+import hashlib
+import json
 import logging
 import re
 import threading
@@ -131,7 +133,7 @@ def to_payload(record: JobRecord, india_portal: bool = False) -> dict | None:
     description = "\n\n".join(p for p in (overview, record.description_text.strip()) if p) or None
     mode = record.work_mode or (extraction.work_mode if extraction else None)
     employment = None if record.employment_type.value == "unknown" else record.employment_type.value
-    return {
+    payload = {
         "company_name": company,
         "title": title,
         "apply_url": url,
@@ -142,12 +144,15 @@ def to_payload(record: JobRecord, india_portal: bool = False) -> dict | None:
         "required_skills": skills,
         "source": record.source,
         "external_id": record.external_id,
-        "source_content_hash": record.content_hash,
         "is_remote": is_remote(record),
         "is_india": india_flag(record, india_portal),
         "work_mode": mode.value if mode else None,
         "posted_date": record.posted_date.isoformat() if record.posted_date else None,
     }
+    # The backend decides inserted / updated / unchanged by comparing this fingerprint. It covers everything we send
+    # (not just the posting text), so a parser fix or a late LLM extraction reaches the backend as an update.
+    payload["source_content_hash"] = hashlib.sha256(json.dumps(payload, sort_keys=True, ensure_ascii=False).encode()).hexdigest()
+    return payload
 
 
 class PushError(Exception):

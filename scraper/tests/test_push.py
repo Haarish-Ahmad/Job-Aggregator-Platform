@@ -62,7 +62,7 @@ def test_payload_maps_the_fields():
     p = to_payload(record(posted_date=date(2026, 10, 1), overview="Salary: 3 LPA"), india_portal=True)
     assert p["company_name"] == "Acme" and p["title"] == "Software Developer (Fresher)"
     assert p["apply_url"].endswith("/42") and p["source"] == "shine" and p["external_id"] == "42"
-    assert p["source_content_hash"] == "h" * 64 and p["job_type"] == "full_time" and p["posted_date"] == "2026-10-01"
+    assert len(p["source_content_hash"]) == 64 and p["job_type"] == "full_time" and p["posted_date"] == "2026-10-01"
     assert p["description"] == "Salary: 3 LPA\n\nBuild things." and p["required_skills"] == ["python", "sql"]
     assert p["is_india"] is True and p["is_remote"] is False
 
@@ -246,3 +246,25 @@ def test_flush_with_nothing_buffered_sends_nothing(settings, tmp_path):
     backend = FakeBackend()
     make_pusher(settings, tmp_path, backend).flush()
     assert backend.requests == []
+
+
+# --- the fingerprint the backend compares
+def fingerprint(**kw):
+    return to_payload(record(**kw))["source_content_hash"]
+
+
+def test_fingerprint_is_stable_for_the_same_record():
+    assert fingerprint() == fingerprint()
+
+
+def test_fingerprint_changes_when_anything_sent_changes():
+    base = fingerprint()
+    ext = ExtractionResult(model="m", prompt_version="1", extracted_at=datetime.now(UTC), data=JobExtraction(skills=["Rust"]))
+    changed = [fingerprint(company="Other Co"), fingerprint(title="New title"), fingerprint(locations=["Pune"]),
+               fingerprint(description_text="different text"), fingerprint(required_qualifications=["Go"]), fingerprint(extraction=ext),
+               fingerprint(posted_date=date(2026, 10, 1)), fingerprint(url="https://www.shine.com/jobs/x/acme/43")]
+    assert base not in changed and len(set(changed)) == len(changed)
+
+
+def test_fingerprint_ignores_what_is_not_sent():
+    assert fingerprint(content_hash="a" * 64) == fingerprint(content_hash="b" * 64)

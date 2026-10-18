@@ -22,6 +22,9 @@ _CARD_RE = re.compile(
     r"(?P<meta>[^\n]+)\n*(?:Required:(?P<skills>[^\n]*))?"
 )
 _AGO_RE = re.compile(r"\s*(?:\d+\s+(?:minute|hour|day|week|month|year)s?\s+ago|just now|today)\s*$", re.IGNORECASE)
+# Promotional labels Shine puts between the employer line and the title ("Actively Hiring", "Be An Early Applicant"...).
+_BADGE_RE = re.compile(r"^(?:actively hiring|be an early applicant|early applicant|urgent(?:ly)? hiring|featured|premium|verified|new)+$",
+                       re.IGNORECASE)
 _EXPERIENCE_RE = re.compile(r"^(\d{1,2})(?:\s*to\s*\d{1,2})?\s*Yrs?", re.IGNORECASE)
 _DESCRIPTION_RE = re.compile(r"Job Description\n-+\n(.*?)(?:\nIndustry\n|\nRead full description|\Z)", re.DOTALL)
 _SKILL_RE = re.compile(r"\[([^\]]+)\]\(https://www\.shine\.com/job-search/")
@@ -48,12 +51,25 @@ def search_urls(query: str, location: str, page: int) -> str:
     return f"{BASE}/job-search/{path}"
 
 
+def _company_from(lines_before_title: list[str]) -> str:
+    """The employer is the line that ends with the posting age ('Acme Ltd1 week ago'), a few lines above the title.
+    Promotional badge lines can sit between that line and the title, so the last line is not always the employer."""
+    recent = lines_before_title[-5:]
+    for line in reversed(recent):
+        if _AGO_RE.search(line):
+            return _AGO_RE.sub("", line).strip()
+    for line in reversed(recent):  # no age line (layout change): the nearest line that is not a badge
+        if not _BADGE_RE.match(line.replace(" ", "")) and not _BADGE_RE.match(line):
+            return line.strip()
+    return ""
+
+
 def parse_listing(markdown: str) -> list[dict]:
     """Search-results markdown -> one dict per posting card (url, title, company, years, skills)."""
     cards = []
     for match in _CARD_RE.finditer(markdown):
         before = [ln.strip() for ln in markdown[: match.start()].splitlines() if ln.strip() and not ln.startswith("![")]
-        company = _AGO_RE.sub("", before[-1]).strip() if before else ""
+        company = _company_from(before)
         years = _EXPERIENCE_RE.match(match.group("meta").strip())
         cards.append(
             {

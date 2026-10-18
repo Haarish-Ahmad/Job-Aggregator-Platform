@@ -9,7 +9,7 @@ from scraper.config import Settings
 from scraper.extraction import OllamaExtractor
 from scraper.http import PoliteClient
 from scraper.metrics import LAST_SUCCESS, RUN_DURATION, RUNS
-from scraper.models import JobRef, SearchFilters
+from scraper.models import SearchFilters
 from scraper.pipeline import RunStats
 from scraper.pipeline import run as run_pipeline
 from scraper.push import BackendPusher, PushStats
@@ -47,13 +47,8 @@ def run_source(
     extractor = extractor or (OllamaExtractor(settings) if extract else None)
     pusher = BackendPusher(settings, storage, client=backend_client, india_portal=adapter.india_portal) if push else None
 
-    def on_job(ref: JobRef, outcome: str) -> None:
-        record = storage.get_record(adapter.name, ref.external_id)
-        if record is not None and pusher is not None:
-            pusher.add(record)
-
     try:
-        stats = run_pipeline(adapter, filters, storage, settings, extractor, on_job=on_job if pusher else None)
+        stats = run_pipeline(adapter, filters, storage, settings, extractor, on_record=pusher.add if pusher else None)
         push_stats = pusher.flush() if pusher else None
     except Exception:
         RUNS.labels(source, "error").inc()

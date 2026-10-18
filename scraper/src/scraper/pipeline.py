@@ -50,11 +50,16 @@ def process_job(
     storage: Storage,
     extractor: OllamaExtractor | None = None,
     stats: RunStats | None = None,
+    on_record: Callable[[JobRecord], None] | None = None,
 ) -> str:
     """Fetch -> normalize -> filter -> (LLM extract) -> store one job.
 
     Returns 'saved', 'unchanged' or 'filtered'. Raises on fetch/normalize failure; an extraction
     failure never loses the job, it is saved without LLM fields and retried on the next run.
+
+    on_record receives the record to deliver downstream for every job that is 'saved' or 'unchanged'. For an
+    unchanged job that is the freshly parsed record (so parser fixes reach the consumer) carrying over the
+    extraction already stored for the same text.
     """
     stats = stats or RunStats()
     try:
@@ -74,7 +79,12 @@ def process_job(
         and extractor.wants(record.description_text)
         and storage.get_extraction_tag(record.source, record.external_id) != extractor.tag
     )
+    if unchanged:
+        stored = storage.get_record(record.source, record.external_id)
+        record.extraction = stored.extraction if stored else None  # same text, so the old extraction still applies
     if unchanged and not needs_extraction:
+        if on_record:
+            on_record(record)
         return "unchanged"  # same text and already extracted by this model/prompt: skip the LLM too
     if needs_extraction:
         try:
@@ -98,8 +108,12 @@ def process_job(
                 )
             )
             if unchanged:
+                if on_record:
+                    on_record(record)
                 return "unchanged"  # nothing new to store; retry next run
     storage.save(record)
+    if on_record:
+        on_record(record)
     return "saved"
 
 
@@ -109,9 +123,9 @@ def run(
     storage: Storage,
     settings: Settings,
     extractor: OllamaExtractor | None = None,
-    on_job: Callable[[JobRef, str], None] | None = None,
+    on_record: Callable[[JobRecord], None] | None = None,
 ) -> RunStats:
-    """on_job(ref, outcome) is called for every job that ends 'saved' or 'unchanged' (e.g. to push it on)."""
+    """on_record(record) is called for every job that ends 'saved' or 'unchanged' (e.g. to push it on)."""
     stats = RunStats()
     refs = adapter.discover(filters)
     stats.discovered = len(refs)
@@ -119,11 +133,9 @@ def run(
 
     def work(ref: JobRef) -> None:
         try:
-            outcome = process_job(adapter, ref, storage, extractor, stats)
+            outcome = process_job(adapter, ref, storage, extractor, stats, on_record)
             setattr(stats, outcome, getattr(stats, outcome) + 1)
             JOBS.labels(adapter.name, outcome).inc()
-            if on_job and outcome in ("saved", "unchanged"):
-                on_job(ref, outcome)
         except Exception as exc:  # one bad URL must not abort the run
             log.error("failed %s: %s", ref.url, exc)
             JOBS.labels(adapter.name, "failed").inc()

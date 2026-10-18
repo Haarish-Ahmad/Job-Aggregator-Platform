@@ -41,7 +41,7 @@ def test_pipeline_filters_before_storing(tmp_path):
 def test_cli_passes_query_for_every_source(monkeypatch, tmp_path):
     seen = {}
 
-    def fake_run(adapter, filters, storage, settings, extractor=None, on_job=None):
+    def fake_run(adapter, filters, storage, settings, extractor=None, on_record=None):
         seen["queries"] = filters.queries
         return RunStats()
 
@@ -60,7 +60,7 @@ def test_cli_uses_each_adapters_own_default_queries(monkeypatch, tmp_path):
     from scraper.adapters import REGISTRY
 
     seen = {}
-    monkeypatch.setattr(runner_module, "run_pipeline", lambda a, f, st, se, ex=None, on_job=None: (seen.update(q=f.queries), RunStats())[1])
+    monkeypatch.setattr(runner_module, "run_pipeline", lambda a, f, st, se, ex=None, on_record=None: (seen.update(q=f.queries), RunStats())[1])
     monkeypatch.setenv("OUTPUT_DIR", str(tmp_path))
     CliRunner().invoke(cli.app, ["run", "--source", "unstop"])
     assert seen["q"] == REGISTRY["unstop"].default_queries and "software" in seen["q"]

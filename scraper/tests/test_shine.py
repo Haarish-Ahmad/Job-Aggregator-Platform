@@ -108,3 +108,25 @@ def test_discover_gives_each_query_a_fair_share(httpx_mock, client):
     titles = [r.hints["title"] for r in refs]
     assert len(refs) == 9
     assert sum("Software" in t for t in titles) == 3 and sum("Machine-Learning" in t for t in titles) == 3 and sum("Cyber" in t for t in titles) == 3
+
+
+def test_badge_lines_are_never_taken_for_the_employer():
+    cards = parse_listing(_read("shine_listing.md"))
+    badges = {"actively hiring", "be an early applicant", "actively hiringbe an early applicant"}
+    assert all(c["company"] and c["company"].lower() not in badges for c in cards)
+    by_title = {c["title"]: c["company"] for c in cards}
+    # This card has an "Actively Hiring" line between the employer line and the title.
+    assert by_title["IT Fresher"] == "DSHINE PRO SOLUTIONS"
+
+
+@pytest.mark.parametrize("lines,expected", [
+    (["Acme Ltd1 week ago", "Actively Hiring"], "Acme Ltd"),
+    (["Acme Ltd2 days ago", "Actively HiringBe An Early Applicant"], "Acme Ltd"),
+    (["logo", "DP", "Zenith Corp3 hours ago"], "Zenith Corp"),
+    (["Acme Ltd", "Actively Hiring"], "Acme Ltd"),   # no age line at all: skip the badge, keep the employer
+    (["Actively Hiring"], ""),
+    ([], ""),
+])
+def test_company_from_lines_above_the_title(lines, expected):
+    from scraper.adapters.shine import _company_from
+    assert _company_from(lines) == expected
