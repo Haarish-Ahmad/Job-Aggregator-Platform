@@ -81,6 +81,19 @@ export function sourceLabel(source: string | null): string {
   return { shine: "Shine", internshala: "Internshala", unstop: "Unstop", greenhouse: "Greenhouse", microsoft: "Microsoft Careers", google: "Google Careers", ycombinator: "Y Combinator" }[source] ?? source;
 }
 
+/** Up to two capital letters for a company's placeholder cover ("Acme Corp" -> "AC"). */
+export function initials(name: string | null): string {
+  const words = (name ?? "").match(/[\p{L}\p{N}]+/gu) ?? [];
+  return words.slice(0, 2).map((w) => w[0].toUpperCase()).join("") || "?";
+}
+
+/** A stable hue per company, so the same employer always gets the same cover colour. */
+export function companyHue(name: string | null): number {
+  let h = 0;
+  for (const c of name ?? "") h = (h * 31 + c.charCodeAt(0)) >>> 0;
+  return h % 360;
+}
+
 export function parseList(text: string): string[] {
   return [...new Set(text.split(",").map((s) => s.trim().toLowerCase()).filter(Boolean))];
 }

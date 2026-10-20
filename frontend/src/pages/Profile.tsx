@@ -1,7 +1,8 @@
 import { useState, type FormEvent } from "react";
+import { Icon } from "../components/Icon";
 import { Loading } from "../components/States";
 import { useAuth } from "../lib/auth";
-import { parseList } from "../lib/format";
+import { initials, parseList } from "../lib/format";
 import type { Student } from "../lib/types";
 
 export function ProfilePage() {
@@ -58,29 +59,53 @@ function ProfileForm({ user }: { user: Student }) {
 
   return (
     <>
-      <h1>Your profile</h1>
-      <p className="lead">{user.name} · {user.email}{user.role === "admin" && " · admin"}</p>
-      <form className="card form" onSubmit={save}>
-        <div className="row">
-          <label>Branch<input value={f.branch} onChange={set("branch")} placeholder="CSE" /></label>
-          <label>CGPA<input type="number" step="0.01" min="0" max="10" value={f.cgpa} onChange={set("cgpa")} /></label>
-          <label>Graduation year<input type="number" min="2000" max="2100" value={f.grad_year} onChange={set("grad_year")} required /></label>
-        </div>
-        <label>Skills <small>(comma separated)</small><input value={f.skills} onChange={set("skills")} placeholder="python, sql, react" /></label>
-        <label>Resume link<input type="url" value={f.resume_link} onChange={set("resume_link")} placeholder="https://…" /></label>
-        <button className="btn primary" disabled={busy}>{busy ? "Saving…" : "Save profile"}</button>
-      </form>
-
-      <section className="card">
-        <h2>Email alerts</h2>
-        <p>Get one email when new jobs match your profile well (60% or more of the required skills). No emails are sent unless you switch this on.</p>
-        <label className="check">
-          <input type="checkbox" checked={user.alerts_enabled} disabled={alertBusy} onChange={(e) => toggleAlerts(e.target.checked)} />
-          Email me about new matches at {user.email}
-        </label>
+      <section className="page-head">
+        <h1>Your profile</h1>
+        <p className="lead">Matches and alerts use these details. Keep your skills current.</p>
       </section>
+      <div className="profile-grid">
+        <aside className="id-card">
+          <span className="avatar big" aria-hidden="true">{initials(user.name).slice(0, 1)}</span>
+          <strong>{user.name}</strong>
+          <span className="muted">{user.email}</span>
+          {user.role === "admin" && <span className="badge">admin</span>}
+          <dl className="id-facts">
+            <div><dt>Skills</dt><dd>{user.skills.length}</dd></div>
+            <div><dt>Graduating</dt><dd>{user.grad_year ?? "–"}</dd></div>
+            <div><dt>CGPA</dt><dd>{user.cgpa ?? "–"}</dd></div>
+          </dl>
+        </aside>
 
-      {status && <p className={status.kind === "ok" ? "form-ok" : "form-error"} role={status.kind === "ok" ? "status" : "alert"}>{status.text}</p>}
+        <div className="profile-main">
+          <form className="panel form" onSubmit={save}>
+            <h2>Academic details</h2>
+            <div className="row">
+              <label className="field">Branch<input value={f.branch} onChange={set("branch")} placeholder="CSE" /></label>
+              <label className="field">CGPA<input type="number" step="0.01" min="0" max="10" value={f.cgpa} onChange={set("cgpa")} /></label>
+              <label className="field">Graduation year<input type="number" min="2000" max="2100" value={f.grad_year} onChange={set("grad_year")} required /></label>
+            </div>
+            <label className="field">Skills <small>(comma separated)</small><input value={f.skills} onChange={set("skills")} placeholder="python, sql, react" /></label>
+            <label className="field">Resume link<input type="url" value={f.resume_link} onChange={set("resume_link")} placeholder="https://…" /></label>
+            <div>
+              <button className="btn primary" disabled={busy}>{busy ? "Saving…" : "Save profile"}</button>
+            </div>
+          </form>
+
+          <section className="panel">
+            <h2>
+              <Icon name="bell" size={20} /> Email alerts
+            </h2>
+            <p className="muted">Get one email when new jobs match your profile well (60% or more of the required skills). No emails are sent unless you switch this on.</p>
+            <label className="switch">
+              <input type="checkbox" role="switch" checked={user.alerts_enabled} disabled={alertBusy} onChange={(e) => toggleAlerts(e.target.checked)} />
+              <span className="track" aria-hidden="true" />
+              Email me about new matches at {user.email}
+            </label>
+          </section>
+
+          {status && <p className={status.kind === "ok" ? "form-ok" : "form-error"} role={status.kind === "ok" ? "status" : "alert"}>{status.text}</p>}
+        </div>
+      </div>
     </>
   );
 }

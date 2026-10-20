@@ -23,7 +23,8 @@ export function BarList({ rows, unit = "", max }: { rows: { label: string; value
   );
 }
 
-const COLORS = ["#2563eb", "#db2777", "#16a34a", "#d97706", "#7c3aed"];
+// The brand rose first, then hues far enough apart to tell five lines apart on white or dark.
+const COLORS = ["#e0475e", "#0f8b8d", "#4f6bed", "#d98a1a", "#8b5cf6"];
 
 /** Weekly counts per skill as an SVG line chart. */
 export function TrendChart({ points }: { points: TrendPoint[] }) {

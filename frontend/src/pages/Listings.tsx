@@ -1,9 +1,11 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { useSearchParams } from "react-router-dom";
+import { Icon, type IconName } from "../components/Icon";
 import { JobCard } from "../components/JobCard";
 import { Pagination } from "../components/Pagination";
 import { EmptyState, ErrorState, Loading } from "../components/States";
 import { api } from "../lib/api";
+import { sourceLabel } from "../lib/format";
 import { useAsync } from "../lib/useAsync";
 import type { JobQuery, Scope, Sort } from "../lib/types";
 
@@ -28,6 +30,14 @@ const TYPES = [
   { value: "contract", label: "Contract" },
 ];
 const SOURCES = ["", "shine", "internshala", "unstop", "greenhouse", "microsoft", "google", "ycombinator"];
+// The same job types as TYPES, as a row of big one-tap buttons above the results.
+const CATEGORIES: { value: string; label: string; icon: IconName }[] = [
+  { value: "", label: "All jobs", icon: "layers" },
+  { value: "internship", label: "Internships", icon: "cap" },
+  { value: "full_time", label: "Full time", icon: "briefcase" },
+  { value: "part_time", label: "Part time", icon: "clock" },
+  { value: "contract", label: "Contract", icon: "file" },
+];
 
 function narrowScreen(): boolean {
   return typeof window.matchMedia === "function" && window.matchMedia("(max-width: 640px)").matches;
@@ -81,63 +91,86 @@ export function ListingsPage() {
 
   return (
     <>
-      <h1>Jobs & internships</h1>
-      {/* On a phone the filters start collapsed so the results are visible; on wider screens they are always open. */}
-      <details className="filter-panel" open={!narrowScreen()}>
-        <summary className="btn">Filters{filtered ? " (active)" : ""}</summary>
-      <form className="filters card" onSubmit={onSearch} role="search" aria-label="Filter jobs">
-        <label className="grow">
-          Search
-          <input type="search" value={text.q} onChange={(e) => setText({ ...text, q: e.target.value })} placeholder="Title or company" />
-        </label>
-        <label>
-          Where
-          <select value={query.scope} onChange={(e) => update({ scope: e.target.value })}>
-            {SCOPES.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}
-          </select>
-        </label>
-        <label>
-          Type
-          <select value={query.job_type ?? ""} onChange={(e) => update({ job_type: e.target.value })}>
-            {TYPES.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
-          </select>
-        </label>
-        <label>
-          City
-          <input value={text.location} onChange={(e) => setText({ ...text, location: e.target.value })} placeholder="e.g. Pune" />
-        </label>
-        <label>
-          Skill
-          <input value={text.skill} onChange={(e) => setText({ ...text, skill: e.target.value })} placeholder="e.g. python" />
-        </label>
-        <label>
-          Graduating
-          <input type="number" min="2000" max="2100" value={text.grad_year} onChange={(e) => setText({ ...text, grad_year: e.target.value })} placeholder="2026" />
-        </label>
-        <label>
-          Source
-          <select value={query.source ?? ""} onChange={(e) => update({ source: e.target.value })}>
-            {SOURCES.map((s) => <option key={s} value={s}>{s || "Any source"}</option>)}
-          </select>
-        </label>
-        <label>
-          Sort
-          <select value={query.sort} onChange={(e) => update({ sort: e.target.value })}>
-            {SORTS.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}
-          </select>
-        </label>
-        <label className="check">
-          <input type="checkbox" checked={!!query.hide_expired} onChange={(e) => update({ hide_expired: e.target.checked ? "1" : undefined })} />
-          Hide closed
-        </label>
-        <button className="btn primary">Search</button>
-        {filtered && (
-          <button type="button" className="btn" onClick={() => setParams(new URLSearchParams({ scope: query.scope ?? "india_remote" }))}>
-            Clear filters
+      <section className="hero">
+        <h1>Jobs & internships</h1>
+        <p className="lead">Off-campus roles for students, collected from job boards and company career pages.</p>
+      </section>
+      <form className="finder" onSubmit={onSearch} role="search" aria-label="Filter jobs">
+        <div className="searchbar">
+          <label className="seg grow">
+            <span>Search</span>
+            <input type="search" value={text.q} onChange={(e) => setText({ ...text, q: e.target.value })} placeholder="Title or company" />
+          </label>
+          <label className="seg">
+            <span>City</span>
+            <input value={text.location} onChange={(e) => setText({ ...text, location: e.target.value })} placeholder="e.g. Pune" />
+          </label>
+          <label className="seg">
+            <span>Skill</span>
+            <input value={text.skill} onChange={(e) => setText({ ...text, skill: e.target.value })} placeholder="e.g. python" />
+          </label>
+          <button className="search-btn">
+            <Icon name="search" size={18} />
+            <span className="search-btn-text">Search</span>
           </button>
-        )}
+        </div>
+
+        <div className="categories" role="group" aria-label="Job type">
+          {CATEGORIES.map((c) => (
+            <button key={c.value} type="button" className="category" aria-pressed={(query.job_type ?? "") === c.value} onClick={() => update({ job_type: c.value })}>
+              <Icon name={c.icon} size={22} />
+              <span>{c.label}</span>
+            </button>
+          ))}
+        </div>
+
+        {/* On a phone the filters start collapsed so the results are visible; on wider screens they are always open. */}
+        <details className="filter-panel" open={!narrowScreen()}>
+          <summary className="btn round">
+            <Icon name="sliders" size={16} />
+            Filters{filtered ? " (active)" : ""}
+          </summary>
+          <div className="filter-bar">
+            <label className="field">
+              Where
+              <select value={query.scope} onChange={(e) => update({ scope: e.target.value })}>
+                {SCOPES.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}
+              </select>
+            </label>
+            <label className="field">
+              Type
+              <select value={query.job_type ?? ""} onChange={(e) => update({ job_type: e.target.value })}>
+                {TYPES.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
+              </select>
+            </label>
+            <label className="field">
+              Graduating
+              <input type="number" min="2000" max="2100" value={text.grad_year} onChange={(e) => setText({ ...text, grad_year: e.target.value })} placeholder="2026" />
+            </label>
+            <label className="field">
+              Source
+              <select value={query.source ?? ""} onChange={(e) => update({ source: e.target.value })}>
+                {SOURCES.map((s) => <option key={s} value={s}>{s ? sourceLabel(s) : "Any source"}</option>)}
+              </select>
+            </label>
+            <label className="field">
+              Sort
+              <select value={query.sort} onChange={(e) => update({ sort: e.target.value })}>
+                {SORTS.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}
+              </select>
+            </label>
+            <label className="check">
+              <input type="checkbox" checked={!!query.hide_expired} onChange={(e) => update({ hide_expired: e.target.checked ? "1" : undefined })} />
+              Hide closed
+            </label>
+            {filtered && (
+              <button type="button" className="link" onClick={() => setParams(new URLSearchParams({ scope: query.scope ?? "india_remote" }))}>
+                Clear filters
+              </button>
+            )}
+          </div>
+        </details>
       </form>
-      </details>
 
       {loading && !data && <Loading label="Loading jobs…" />}
       {error && <ErrorState error={error} onRetry={reload} />}

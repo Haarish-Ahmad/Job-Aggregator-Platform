@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import { ApiError } from "../lib/api";
+import { Icon } from "./Icon";
 
 export function Loading({ label = "Loading…" }: { label?: string }) {
   return (
@@ -13,6 +14,9 @@ export function Loading({ label = "Loading…" }: { label?: string }) {
 export function EmptyState({ title, children }: { title: string; children?: ReactNode }) {
   return (
     <div className="state empty">
+      <span className="state-icon" aria-hidden="true">
+        <Icon name="search" size={26} />
+      </span>
       <strong>{title}</strong>
       {children && <p>{children}</p>}
     </div>
@@ -27,6 +31,7 @@ export function ErrorState({ error, onRetry }: { error: Error; onRetry?: () => v
       <p>{error.message}</p>
       {onRetry && !forbidden && (
         <button type="button" className="btn" onClick={onRetry}>
+          <Icon name="refresh" size={16} />
           Try again
         </button>
       )}

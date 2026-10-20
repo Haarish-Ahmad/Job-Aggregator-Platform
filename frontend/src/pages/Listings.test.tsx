@@ -67,6 +67,18 @@ it("puts filters in the URL and queries the API with them", async () => {
   await waitFor(() => expect(jobs).toHaveBeenLastCalledWith(expect.objectContaining({ hide_expired: true })));
 });
 
+it("the category row filters by job type and shows which one is selected", async () => {
+  jobs.mockResolvedValue({ jobs: [job()], total: 1 });
+  page();
+  await screen.findByText("Python Developer");
+  const row = screen.getByRole("group", { name: "Job type" });
+  expect(within(row).getByRole("button", { name: "All jobs" })).toHaveAttribute("aria-pressed", "true");
+  await userEvent.click(within(row).getByRole("button", { name: "Internships" }));
+  await waitFor(() => expect(jobs).toHaveBeenLastCalledWith(expect.objectContaining({ job_type: "internship" })));
+  expect(within(row).getByRole("button", { name: "Internships" })).toHaveAttribute("aria-pressed", "true");
+  expect(screen.getByLabelText("Type")).toHaveValue("internship");
+});
+
 it("changing a filter goes back to page 1, and clear filters resets", async () => {
   jobs.mockResolvedValue({ jobs: [job()], total: 100 });
   renderAt(<><Routes><Route path="/" element={<ListingsPage />} /></Routes><Where /></>, "/?page=3&q=x", { auth: false });
