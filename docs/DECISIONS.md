@@ -63,3 +63,12 @@ Choices made without a team decision, newest last. Each says what, why, and how 
 - `APP_ENV` defaults to `production` (D10); the compose file sets it explicitly.
 - The email-alert digest is sent once per scrape cycle (not per ingest batch) to limit noise.
 - Grafana's dashboards are baked into the image at `/etc/grafana/dashboards`, deliberately **not** under `/var/lib/grafana`: that path is the data volume, which hides image contents once it exists, so dashboard updates would never reach an existing deployment (found by rebuilding the image and seeing the old dashboards).
+
+## D13. Prometheus and Grafana removed (team decision, 2026-10-22)
+- The `prometheus` and `grafana` services, `infra/prometheus/`, `infra/grafana/`, their images in CI and release, their
+  `.env` variables (`GRAFANA_ADMIN_*`, `PROMETHEUS_*`), the `/grafana/` nginx route and the smoke-test monitoring checks are gone.
+  Four images are published now (backend, scraper, frontend, nginx); this supersedes the "six images" line in D12, and the
+  Grafana notes in D12 no longer apply.
+- Kept on purpose: the backend's `/metrics` and the scraper's `/metrics` and `/health`. They cost nothing, the scraper's
+  container healthcheck uses that port, and any monitoring system can scrape them again later. nginx still returns 404
+  for `/api/metrics`.

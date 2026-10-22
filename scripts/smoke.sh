@@ -4,8 +4,8 @@
 #   bash scripts/smoke.sh            # builds and starts a separate stack ("jobsmoke"), checks it, tears it down
 #   KEEP=1 bash scripts/smoke.sh     # leave it running afterwards (http://localhost:8080)
 #
-# It checks: every container healthy, nginx routing, the frontend, API health, auth, Prometheus targets,
-# Grafana provisioning, a scraper pipeline run (twice: no duplicates), and an alert email reaching Mailpit.
+# It checks: every container healthy, nginx routing, the frontend, API health, auth, a scraper pipeline run
+# (twice: no duplicates), and an alert email reaching Mailpit.
 # shellcheck disable=SC2015  # "cond && ok || bad" is deliberate: ok and bad always succeed
 set -euo pipefail
 cd "$(dirname "$0")/.."
@@ -13,7 +13,6 @@ cd "$(dirname "$0")/.."
 ENV_FILE=.smoke.env
 PROJECT=jobsmoke
 PORT=8080
-PROM_PORT=19090
 MAIL_PORT=18025
 MOCK_FC_PORT=13002      # not 3002/11434: a real Firecrawl/Ollama usually owns those on a dev machine
 MOCK_OLLAMA_PORT=11435
@@ -21,16 +20,13 @@ rand() { python3 -c "import secrets; print(secrets.token_urlsafe($1))"; }
 alnum() { python3 -c "import secrets,string; print(''.join(secrets.choice(string.ascii_letters+string.digits) for _ in range($1)))"; }
 dc() { docker compose -p "$PROJECT" --env-file "$ENV_FILE" "$@"; }
 
-GRAFANA_PW=$(alnum 16)
 cat > "$ENV_FILE" <<ENV
 POSTGRES_PASSWORD=$(alnum 20)
 SECRET_KEY=$(rand 40)
 INGEST_TOKEN=$(rand 24)
-GRAFANA_ADMIN_PASSWORD=$GRAFANA_PW
 ADMIN_EMAIL=admin@college.edu
 ADMIN_PASSWORD=$(alnum 16)
 HTTP_PORT=$PORT
-PROMETHEUS_PORT=$PROM_PORT
 MAILPIT_UI_PORT=$MAIL_PORT
 RUN_ON_START=false
 SERVE_SOURCES=shine
@@ -116,28 +112,6 @@ PY
 mail_arrived() { curl -fsS "http://localhost:$MAIL_PORT/api/v1/messages" | grep -q 'smoke@college.edu'; }
 retry 10 mail_arrived || true
 contains "an email for smoke@college.edu arrived" 'smoke@college.edu' "$(curl -fsS "http://localhost:$MAIL_PORT/api/v1/messages")"
-
-echo "== monitoring"
-targets_up() {
-  local json; json=$(curl -fsS "http://localhost:$PROM_PORT/api/v1/targets") || return 1
-  python3 - "$json" <<'PY'
-import json, sys
-t = json.loads(sys.argv[1])["data"]["activeTargets"]
-names = {x["labels"]["job"] for x in t}
-sys.exit(0 if {"backend", "scraper", "prometheus"} <= names and all(x["health"] == "up" for x in t) else 1)
-PY
-}
-retry 20 targets_up && ok "Prometheus targets (backend, scraper, prometheus) are all UP" || bad "a Prometheus target is down"
-contains "Grafana reachable at /grafana/" '"database": "ok"' "$(curl -fsS "$BASE/grafana/api/health")"
-dash=$(curl -fsS -u "admin:$GRAFANA_PW" "$BASE/grafana/api/search?query=")
-contains "dashboard 'API health' provisioned" "API health" "$dash"
-contains "dashboard 'Scraper pipeline' provisioned" "Scraper pipeline" "$dash"
-contains "Prometheus datasource provisioned" '"uid": "prometheus"' "$(curl -fsS -u "admin:$GRAFANA_PW" "$BASE/grafana/api/datasources/uid/prometheus" | python3 -m json.tool)"
-q() { curl -fsS -G "http://localhost:$PROM_PORT/api/v1/query" --data-urlencode "query=$1"; }
-retry 10 bash -c "curl -fsS -G 'http://localhost:$PROM_PORT/api/v1/query' --data-urlencode 'query=sum(http_requests_total)' | grep -q '\"result\":\[{'" && ok "backend request metrics are being collected" || bad "no backend metrics"
-# The pipeline run above happened in a separate `exec` process, so its counters are not in the served process;
-# what Prometheus can always see from the served scraper is its own gauges.
-retry 10 bash -c "curl -fsS -G 'http://localhost:$PROM_PORT/api/v1/query' --data-urlencode 'query=scraper_run_in_progress' | grep -q '\"result\":\[{'" && ok "scraper metrics are being collected" || bad "no scraper metrics"
 
 rm -f "$ADMIN_JAR"
 echo; echo "smoke test: $pass passed, $fail failed"

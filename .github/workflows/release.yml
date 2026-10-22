@@ -27,8 +27,6 @@ jobs:
           - { service: scraper, context: scraper, file: scraper/Dockerfile }
           - { service: frontend, context: frontend, file: frontend/Dockerfile }
           - { service: nginx, context: infra/nginx, file: infra/nginx/Dockerfile }
-          - { service: prometheus, context: infra/prometheus, file: infra/prometheus/Dockerfile }
-          - { service: grafana, context: infra/grafana, file: infra/grafana/Dockerfile }
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
       - name: Image name (ghcr.io/<owner>/<repo>-<service>, lowercase)
