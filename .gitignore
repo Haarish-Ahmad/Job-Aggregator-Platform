@@ -1,6 +1,30 @@
+# Secrets and local config
+.env
+
+# Python
 .venv/
 venv/
 __pycache__/
 *.pyc
-.env
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+
+# Node / frontend build
+node_modules/
+dist/
+
+# Local data and editor files
+data/
 .vscode/
+
+# Self-hosted Firecrawl is an external dependency (own repo), run separately
+/firecrawl/
+
+# Tooling output
+.coverage
+htmlcov/
+.mypy_cache/
+.smoke.env
+.env.*
+!.env.example
