@@ -36,10 +36,13 @@ ENV
 
 MOCK_PID=""
 cleanup() {
+  local code=${1:-0}
   [ -n "$MOCK_PID" ] && kill "$MOCK_PID" 2>/dev/null || true
+  # A failed run is read from CI logs, and the containers are gone afterwards: print theirs first.
+  if [ "$code" -ne 0 ] && [ "${KEEP:-0}" != "1" ]; then echo; echo "== container logs (last 120 lines each)"; dc logs --no-color --tail=120 2>&1 || true; fi
   if [ "${KEEP:-0}" != "1" ]; then dc down -v --remove-orphans >/dev/null 2>&1 || true; rm -f "$ENV_FILE"; fi
 }
-trap cleanup EXIT
+trap 'cleanup "$?"' EXIT
 
 retry() { local n=$1; shift; for _ in $(seq "$n"); do "$@" && return 0; sleep 3; done; return 1; }
 pass=0; fail=0
@@ -75,9 +78,9 @@ contains "security header: CSP" "Content-Security-Policy" "$hdrs"
 [ "$(curl -s -o /dev/null -w '%{http_code}' "$BASE/api/jobs")" = 401 ] && ok "jobs require a login" || bad "jobs are public"
 
 echo "== accounts"
-JAR=$(mktemp); trap 'rm -f "$JAR"; cleanup' EXIT
+JAR=$(mktemp); trap 'code=$?; rm -f "$JAR"; cleanup "$code"' EXIT
 code=$(curl -s -o /dev/null -w '%{http_code}' -X POST "$BASE/api/auth/register" -H 'Content-Type: application/json' \
-  -d '{"name":"Smoke","email":"smoke@college.edu","password":"Smoke@12345","branch":"CSE","cgpa":8,"grad_year":2026,"skills":["java","python"]}')
+  -d '{"name":"Smoke","email":"smoke@college.edu","password":"Smoke@12345","branch":"CSE","cgpa":8,"grad_year":2026,"skills":["java","python","ml","ai"]}')
 [ "$code" = 201 ] && ok "register through nginx" || bad "register -> $code"
 code=$(curl -s -o /dev/null -w '%{http_code}' -c "$JAR" -X POST "$BASE/api/auth/login" -H 'Content-Type: application/json' -d '{"email":"smoke@college.edu","password":"Smoke@12345"}')
 [ "$code" = 200 ] && ok "login through nginx" || bad "login -> $code"
@@ -98,8 +101,8 @@ total2=$(curl -fsS -b "$JAR" -D - -o /dev/null "$BASE/api/jobs?source=shine&scop
 job=$(curl -fsS -b "$JAR" "$BASE/api/jobs?source=shine&scope=all&limit=1")
 contains "the posting's skills reached the backend" '"necessary_skills":["java","python","ml","ai"]' "$job"
 contains "scraped job has company, apply link and freshness" '"last_seen_at"' "$job"
-# the smoke student lists java and python: two of the posting's four skills
-contains "student matches the scraped job" '"score":50' "$(curl -fsS -b "$JAR" "$BASE/api/me/matches")"
+# the smoke student lists all four of the posting's skills; fewer than 60% would also mean no alert email
+contains "student matches the scraped job" '"score":100' "$(curl -fsS -b "$JAR" "$BASE/api/me/matches")"
 contains "analytics available to the admin" '"skills"' "$(curl -fsS -b "$ADMIN_JAR" "$BASE/api/analytics/skill-gap")"
 [ "$(curl -s -o /dev/null -w '%{http_code}' -b "$JAR" "$BASE/api/analytics/skill-gap")" = 403 ] && ok "skill gap is admin-only" || bad "skill gap not restricted"
 
