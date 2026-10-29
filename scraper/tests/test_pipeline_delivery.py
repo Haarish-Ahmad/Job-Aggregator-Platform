@@ -1,9 +1,8 @@
 """What the pipeline hands to the consumer (the backend pusher) for saved and unchanged jobs."""
-from datetime import UTC, datetime
 
 from scraper.adapters.base import SourceAdapter
 from scraper.config import Settings
-from scraper.models import ExtractionResult, JobExtraction, JobRef, RawJob, SearchFilters
+from scraper.models import JobRef, RawJob, SearchFilters
 from scraper.pipeline import run as run_pipeline
 from scraper.storage.jsonl import JsonlStorage
 
@@ -29,10 +28,10 @@ class Adapter(SourceAdapter):
 FILTERS = SearchFilters(queries=[], locations=[], limit=5)
 
 
-def run(tmp_path, adapter, storage=None, extractor=None):
+def run(tmp_path, adapter, storage=None):
     delivered = []
     storage = storage or JsonlStorage(tmp_path)
-    stats = run_pipeline(adapter, FILTERS, storage, Settings(max_concurrency=1), extractor, on_record=delivered.append)
+    stats = run_pipeline(adapter, FILTERS, storage, Settings(max_concurrency=1), on_record=delivered.append)
     return stats, delivered, storage
 
 
@@ -51,16 +50,6 @@ def test_an_unchanged_job_is_delivered_with_its_freshly_parsed_fields(tmp_path):
     adapter.employer = "Acme Corporation"
     stats, delivered, _ = run(tmp_path, adapter, storage)
     assert stats.unchanged == 1 and delivered[0].company == "Acme Corporation"
-
-
-def test_an_unchanged_job_keeps_the_extraction_already_stored(tmp_path):
-    adapter = Adapter(client=None, settings=Settings())
-    _, _, storage = run(tmp_path, adapter)
-    stored = storage.get_record("fake", "1")
-    stored.extraction = ExtractionResult(model="m", prompt_version="1", extracted_at=datetime.now(UTC), data=JobExtraction(skills=["Rust"]))
-    storage.save(stored)
-    stats, delivered, _ = run(tmp_path, adapter, storage)
-    assert stats.unchanged == 1 and delivered[0].extraction.data.skills == ["Rust"]
 
 
 def test_filtered_and_failed_jobs_are_not_delivered(tmp_path):

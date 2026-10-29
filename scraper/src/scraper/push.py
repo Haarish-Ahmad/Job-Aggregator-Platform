@@ -21,6 +21,7 @@ from scraper.config import Settings
 from scraper.location import in_india
 from scraper.metrics import PUSH_BATCHES, PUSHED
 from scraper.models import FailedJob, JobRecord, WorkMode
+from scraper.skills import extract_skills
 from scraper.storage.base import Storage
 
 log = logging.getLogger(__name__)
@@ -104,8 +105,7 @@ def _apply_url(url: str) -> str | None:
 
 
 def is_remote(record: JobRecord) -> bool:
-    mode = record.work_mode or (record.extraction.data.work_mode if record.extraction else None)
-    return mode == WorkMode.remote or any(_REMOTE.search(loc) for loc in record.locations) or bool(_REMOTE.search(record.title))
+    return record.work_mode == WorkMode.remote or any(_REMOTE.search(loc) for loc in record.locations) or bool(_REMOTE.search(record.title))
 
 
 def india_flag(record: JobRecord, india_portal: bool) -> bool | None:
@@ -127,11 +127,13 @@ def to_payload(record: JobRecord, india_portal: bool = False) -> dict | None:
     company, title = _truncate(_clean(record.company), MAX_COMPANY), _truncate(_clean(record.title), MAX_TITLE)
     if not (url and company and title and len(record.external_id) <= MAX_EXTERNAL_ID):
         return None
-    extraction = record.extraction.data if record.extraction else None
-    skills = clean_skill_list(extraction.skills) if extraction and extraction.skills else clean_skill_list(record.required_qualifications)
+    skills = clean_skill_list(record.required_qualifications)
+    if not skills:
+        # Sources that list requirement sentences (Microsoft, Google, Greenhouse) give no skill names: read them from the text.
+        skills = extract_skills(" ".join([record.title, record.overview, record.description_text]))[:MAX_SKILLS]
     overview = _clean(record.overview)
     description = "\n\n".join(p for p in (overview, record.description_text.strip()) if p) or None
-    mode = record.work_mode or (extraction.work_mode if extraction else None)
+    mode = record.work_mode
     employment = None if record.employment_type.value == "unknown" else record.employment_type.value
     payload = {
         "company_name": company,
@@ -140,7 +142,6 @@ def to_payload(record: JobRecord, india_portal: bool = False) -> dict | None:
         "location": join_locations(record.locations),
         "job_type": employment[:MAX_JOB_TYPE] if employment else None,
         "description": description,
-        "allowed_grads": sorted({y for y in (extraction.graduation_years if extraction else []) if 2000 <= y <= 2100}),
         "required_skills": skills,
         "source": record.source,
         "external_id": record.external_id,
@@ -150,7 +151,7 @@ def to_payload(record: JobRecord, india_portal: bool = False) -> dict | None:
         "posted_date": record.posted_date.isoformat() if record.posted_date else None,
     }
     # The backend decides inserted / updated / unchanged by comparing this fingerprint. It covers everything we send
-    # (not just the posting text), so a parser fix or a late LLM extraction reaches the backend as an update.
+    # (not just the posting text), so a parser or skill-list fix reaches the backend as an update.
     payload["source_content_hash"] = hashlib.sha256(json.dumps(payload, sort_keys=True, ensure_ascii=False).encode()).hexdigest()
     return payload
 

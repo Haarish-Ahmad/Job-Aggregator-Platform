@@ -91,7 +91,7 @@ jobs:
             requirements-dev.txt
             scraper/pyproject.toml
       - run: pip install -r requirements-dev.txt -e "scraper[dev]"
-      - name: fixture markdown, mocked Ollama, backend ingest, queryable via the API
+      - name: fixture markdown, backend ingest, queryable via the API
         run: pytest tests/integration -q
 
   frontend:
@@ -156,7 +156,7 @@ jobs:
           cache-to: type=gha,scope=${{ matrix.service }},mode=max
 
   smoke:
-    name: Compose smoke test (mocked Ollama and Firecrawl)
+    name: Compose smoke test (mocked Firecrawl)
     needs: [images]
     runs-on: ubuntu-latest
     timeout-minutes: 25

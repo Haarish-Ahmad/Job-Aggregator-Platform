@@ -44,8 +44,8 @@ def settings_fields(path: Path) -> set[str]:
 # Settings that exist in code but are intentionally not exposed through compose / .env.example.
 BACKEND_NOT_IN_COMPOSE = {"APP_ENV", "DATABASE_URL", "ROOT_PATH", "ALERT_MAX_JOBS_PER_EMAIL", "CURRICULUM_FILE", "IS_DEV"}
 # set in compose itself or derived (not user-facing knobs)
-SCRAPER_NOT_IN_COMPOSE = {"USER_AGENT", "SEARCH_QUERIES", "LOCATIONS", "OUTPUT_DIR", "MAX_MARKDOWN_CHARS", "OLLAMA_TIMEOUT_SECONDS",
-                          "OLLAMA_NUM_CTX", "EXTRACTION_MAX_CHARS", "EXTRACTION_MIN_CHARS", "BACKEND_URL", "INGEST_BATCH_SIZE",
+SCRAPER_NOT_IN_COMPOSE = {"USER_AGENT", "SEARCH_QUERIES", "LOCATIONS", "OUTPUT_DIR", "MAX_MARKDOWN_CHARS",
+                          "BACKEND_URL", "INGEST_BATCH_SIZE",
                           "BACKEND_TIMEOUT_SECONDS", "METRICS_PORT", "ALERTS_AFTER_RUN"}
 # .env.example entries that compose does not reference by that name but are documented on purpose
 EXAMPLE_ONLY = {"IMAGE_PREFIX", "IMAGE_TAG"}  # used by docker-compose.prod.yml (commented out by default)

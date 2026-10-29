@@ -41,7 +41,7 @@ def test_pipeline_filters_before_storing(tmp_path):
 def test_cli_passes_query_for_every_source(monkeypatch, tmp_path):
     seen = {}
 
-    def fake_run(adapter, filters, storage, settings, extractor=None, on_record=None):
+    def fake_run(adapter, filters, storage, settings, on_record=None):
         seen["queries"] = filters.queries
         return RunStats()
 

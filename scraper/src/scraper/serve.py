@@ -59,7 +59,7 @@ def run_cycle(settings: Settings, state: ServeState, backend_client: httpx.Clien
             client = PoliteClient(settings.user_agent, settings.request_delay_seconds)
             try:
                 filters = build_filters(source, settings, None, None, settings.serve_limit)
-                stats, push_stats, _ = runner(source, settings, client, filters, extract=settings.serve_extract, push=True, backend_client=backend_client)
+                stats, push_stats, _ = runner(source, settings, client, filters, push=True, backend_client=backend_client)
                 state.last_results[source] = f"ok discovered={stats.discovered} saved={stats.saved} failed={stats.failed}" + (
                     f" push[{push_stats.summary()}]" if push_stats else "")
                 pushed_any = pushed_any or bool(push_stats and (push_stats.inserted or push_stats.updated or push_stats.unchanged))

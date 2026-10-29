@@ -140,4 +140,4 @@ Systematically look for and fix:
    or nearly empty.
 
 When every item is verified, push the branch, open the PR with a thorough description
-(summary, backend changes, how to run, evidence, known limitations), and report back to me.
+(summary, backend changes, how to run, evidence, known limitations), and report back to me

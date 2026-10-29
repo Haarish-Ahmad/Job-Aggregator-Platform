@@ -2,10 +2,10 @@
 #
 #   cp .env.example .env      # fill in the secrets (see comments inside)
 #   docker compose up -d --build
-#   open http://localhost     (app)   /api/docs (API docs)
+#   open http://localhost     (app)   /grafana/ (dashboards)   /api/docs (API docs)
 #
-# Firecrawl and Ollama are NOT part of this file: they run outside (see README) and are reached through
-# FIRECRAWL_API_URL / OLLAMA_HOST. host.docker.internal is mapped so a host-side service works on Linux too.
+# Firecrawl is NOT part of this file: it runs outside (see README) and is reached through FIRECRAWL_API_URL.
+# host.docker.internal is mapped so a host-side service works on Linux too.
 
 name: job-aggregator
 
@@ -93,11 +93,8 @@ services:
       INGEST_TOKEN: ${INGEST_TOKEN}
       FIRECRAWL_API_URL: ${FIRECRAWL_API_URL:-http://host.docker.internal:3002}
       FIRECRAWL_API_KEY: ${FIRECRAWL_API_KEY:-}
-      OLLAMA_HOST: ${OLLAMA_HOST:-http://host.docker.internal:11434}
-      OLLAMA_MODEL: ${OLLAMA_MODEL:-qwen2.5:3b}
       SERVE_SOURCES: ${SERVE_SOURCES:-unstop,shine,internshala}
       SERVE_LIMIT: ${SERVE_LIMIT:-300}
-      SERVE_EXTRACT: ${SERVE_EXTRACT:-false}
       SCRAPE_INTERVAL_HOURS: ${SCRAPE_INTERVAL_HOURS:-12}
       RUN_ON_START: ${RUN_ON_START:-true}
       REQUEST_DELAY_SECONDS: ${REQUEST_DELAY_SECONDS:-1.5}
@@ -130,6 +127,56 @@ services:
       timeout: 5s
       retries: 5
 
+  prometheus:
+    <<: *restart
+    image: prom/prometheus:v3.5.0
+    # Collects the numbers the backend and scraper publish at /metrics. Settings are mounted from the repo
+    # (monitoring/prometheus/prometheus.yml). Only reachable from this machine, on 127.0.0.1.
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+      - --storage.tsdb.retention.time=${PROMETHEUS_RETENTION:-15d}
+    volumes:
+      - ./monitoring/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prom_data:/prometheus
+    ports:
+      - "127.0.0.1:${PROMETHEUS_PORT:-9090}:9090"
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:9090/-/healthy"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  grafana:
+    <<: *restart
+    image: grafana/grafana:12.1.0
+    # Draws dashboards from Prometheus's data, served at /grafana/ through nginx. The data source and dashboards
+    # are mounted from monitoring/grafana, so there is nothing to click together.
+    depends_on:
+      prometheus: { condition: service_healthy }
+    environment:
+      # First-start login. admin / admin is fine on your own machine; set real values before exposing the site.
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER:-admin}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-admin}
+      GF_SERVER_ROOT_URL: ${PUBLIC_URL:-http://localhost}/grafana/
+      GF_SERVER_SERVE_FROM_SUB_PATH: "true"
+      GF_USERS_ALLOW_SIGN_UP: "false"
+      GF_ANALYTICS_REPORTING_ENABLED: "false"
+      GF_ANALYTICS_CHECK_FOR_UPDATES: "false"
+    volumes:
+      - grafana_state:/var/lib/grafana
+      - ./monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
+      # Not under /var/lib/grafana: the state volume there would hide it.
+      - ./monitoring/grafana/dashboards:/etc/grafana/dashboards:ro
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1:3000/grafana/api/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+
 volumes:
   pgdata:
   scraper_data:
+  prom_data:
+  grafana_state:

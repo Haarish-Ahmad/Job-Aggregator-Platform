@@ -11,10 +11,6 @@ class Storage(ABC):
         """Content hash of the stored record, or None if we have never stored it."""
 
     @abstractmethod
-    def get_extraction_tag(self, source: str, external_id: str) -> str | None:
-        """'model|prompt_version' of the stored record's extraction, or None if it has none."""
-
-    @abstractmethod
     def get_record(self, source: str, external_id: str) -> JobRecord | None:
         """The latest stored record, or None."""
 

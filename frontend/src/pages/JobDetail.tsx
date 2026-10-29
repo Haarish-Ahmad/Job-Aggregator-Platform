@@ -3,19 +3,10 @@ import { Icon } from "../components/Icon";
 import { Cover, FreshnessBadge, SkillChips } from "../components/JobCard";
 import { ErrorState, Loading } from "../components/States";
 import { api } from "../lib/api";
-import { deadline, freshness, jobTypeLabel, sourceLabel, whereLabel } from "../lib/format";
+import { deadline, freshness, jobTypeLabel, safeUrl, sourceLabel, whereLabel } from "../lib/format";
 import { useAsync } from "../lib/useAsync";
 
-/** Only http(s) links become buttons; anything else (javascript:, data:) is shown as plain text. */
-export function safeUrl(url: string | null): string | null {
-  if (!url) return null;
-  try {
-    const u = new URL(url);
-    return u.protocol === "http:" || u.protocol === "https:" ? u.href : null;
-  } catch {
-    return null;
-  }
-}
+export { safeUrl };
 
 export function JobDetailPage() {
   const id = Number(useParams().id);

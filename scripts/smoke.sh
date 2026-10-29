@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
-# End-to-end smoke test of the whole stack, with Firecrawl and Ollama mocked (no external services needed).
+# End-to-end smoke test of the whole stack, with Firecrawl mocked (no external services needed).
 #
 #   bash scripts/smoke.sh            # builds and starts a separate stack ("jobsmoke"), checks it, tears it down
 #   KEEP=1 bash scripts/smoke.sh     # leave it running afterwards (http://localhost:8080)
 #
 # It checks: every container healthy, nginx routing, the frontend, API health, auth, a scraper pipeline run
-# (twice: no duplicates), and an alert email reaching Mailpit.
+# (twice: no duplicates), an alert email reaching Mailpit, and Prometheus + Grafana (targets up, dashboards loaded).
 # shellcheck disable=SC2015  # "cond && ok || bad" is deliberate: ok and bad always succeed
 set -euo pipefail
 cd "$(dirname "$0")/.."
@@ -14,8 +14,8 @@ ENV_FILE=.smoke.env
 PROJECT=jobsmoke
 PORT=8080
 MAIL_PORT=18025
-MOCK_FC_PORT=13002      # not 3002/11434: a real Firecrawl/Ollama usually owns those on a dev machine
-MOCK_OLLAMA_PORT=11435
+PROM_PORT=19090
+MOCK_FC_PORT=13002      # not 3002: a real Firecrawl usually owns that on a dev machine
 rand() { python3 -c "import secrets; print(secrets.token_urlsafe($1))"; }
 alnum() { python3 -c "import secrets,string; print(''.join(secrets.choice(string.ascii_letters+string.digits) for _ in range($1)))"; }
 dc() { docker compose -p "$PROJECT" --env-file "$ENV_FILE" "$@"; }
@@ -28,10 +28,10 @@ ADMIN_EMAIL=admin@college.edu
 ADMIN_PASSWORD=$(alnum 16)
 HTTP_PORT=$PORT
 MAILPIT_UI_PORT=$MAIL_PORT
+PROMETHEUS_PORT=$PROM_PORT
 RUN_ON_START=false
 SERVE_SOURCES=shine
 FIRECRAWL_API_URL=http://host.docker.internal:$MOCK_FC_PORT
-OLLAMA_HOST=http://host.docker.internal:$MOCK_OLLAMA_PORT
 ENV
 
 MOCK_PID=""
@@ -48,10 +48,10 @@ bad()  { echo "  FAIL  $1"; fail=$((fail+1)); }
 check() { local desc=$1; shift; if "$@" >/dev/null 2>&1; then ok "$desc"; else bad "$desc"; fi; }
 contains() { local desc=$1 needle=$2 haystack=$3; if grep -qF -- "$needle" <<<"$haystack"; then ok "$desc"; else bad "$desc (missing: $needle)"; fi; }
 
-echo "== starting mocks (Firecrawl :$MOCK_FC_PORT, Ollama :$MOCK_OLLAMA_PORT)"
-MOCK_FIRECRAWL_PORT=$MOCK_FC_PORT MOCK_OLLAMA_PORT=$MOCK_OLLAMA_PORT python3 scripts/ci_mocks.py & MOCK_PID=$!
-mocks_up() { curl -fsS "http://localhost:$MOCK_FC_PORT/" >/dev/null 2>&1 && curl -fsS "http://localhost:$MOCK_OLLAMA_PORT/api/tags" >/dev/null 2>&1; }
-retry 10 mocks_up 2>/dev/null || { echo "mock servers did not start (are ports $MOCK_FC_PORT/$MOCK_OLLAMA_PORT free?)"; exit 1; }
+echo "== starting the mock Firecrawl (:$MOCK_FC_PORT)"
+MOCK_FIRECRAWL_PORT=$MOCK_FC_PORT python3 scripts/ci_mocks.py & MOCK_PID=$!
+mock_up() { curl -fsS "http://localhost:$MOCK_FC_PORT/" >/dev/null 2>&1; }
+retry 10 mock_up 2>/dev/null || { echo "mock Firecrawl did not start (is port $MOCK_FC_PORT free?)"; exit 1; }
 
 echo "== building and starting the stack (waits for every healthcheck)"
 dc up -d --build --wait --wait-timeout 420
@@ -88,7 +88,7 @@ ADMIN_JAR=$(mktemp)
 code=$(curl -s -o /dev/null -w '%{http_code}' -c "$ADMIN_JAR" -X POST "$BASE/api/auth/login" -H 'Content-Type: application/json' -d "{\"email\":\"admin@college.edu\",\"password\":\"$ADMIN_PW\"}")
 [ "$code" = 200 ] && ok "bootstrapped admin can log in" || bad "admin login -> $code"
 
-echo "== scraper pipeline, run twice (mock Firecrawl -> Shine -> mock Ollama -> backend)"
+echo "== scraper pipeline, run twice (mock Firecrawl -> Shine -> backend)"
 run1=$(dc exec -T scraper python - < scripts/smoke_pipeline.py 2>&1) && ok "first run" || bad "first run: $run1"; echo "      $run1" | tail -1
 total1=$(curl -fsS -b "$JAR" -D - -o /dev/null "$BASE/api/jobs?source=shine&scope=all" | tr -d '\r' | awk -F': ' 'tolower($1)=="x-total-count"{print $2}')
 [ "${total1:-0}" -ge 1 ] && ok "scraped jobs are visible through the API ($total1)" || bad "no scraped jobs visible"
@@ -96,9 +96,10 @@ run2=$(dc exec -T scraper python - < scripts/smoke_pipeline.py 2>&1) && ok "seco
 total2=$(curl -fsS -b "$JAR" -D - -o /dev/null "$BASE/api/jobs?source=shine&scope=all" | tr -d '\r' | awk -F': ' 'tolower($1)=="x-total-count"{print $2}')
 [ "$total1" = "$total2" ] && ok "second run created no duplicates ($total1 == $total2)" || bad "duplicates: $total1 -> $total2"
 job=$(curl -fsS -b "$JAR" "$BASE/api/jobs?source=shine&scope=all&limit=1")
-contains "extracted skills reached the backend" '"necessary_skills":["java","python"]' "$job"
+contains "the posting's skills reached the backend" '"necessary_skills":["java","python","ml","ai"]' "$job"
 contains "scraped job has company, apply link and freshness" '"last_seen_at"' "$job"
-contains "student matches the scraped job" '"score":100' "$(curl -fsS -b "$JAR" "$BASE/api/me/matches")"
+# the smoke student lists java and python: two of the posting's four skills
+contains "student matches the scraped job" '"score":50' "$(curl -fsS -b "$JAR" "$BASE/api/me/matches")"
 contains "analytics available to the admin" '"skills"' "$(curl -fsS -b "$ADMIN_JAR" "$BASE/api/analytics/skill-gap")"
 [ "$(curl -s -o /dev/null -w '%{http_code}' -b "$JAR" "$BASE/api/analytics/skill-gap")" = 403 ] && ok "skill gap is admin-only" || bad "skill gap not restricted"
 
@@ -112,6 +113,26 @@ PY
 mail_arrived() { curl -fsS "http://localhost:$MAIL_PORT/api/v1/messages" | grep -q 'smoke@college.edu'; }
 retry 10 mail_arrived || true
 contains "an email for smoke@college.edu arrived" 'smoke@college.edu' "$(curl -fsS "http://localhost:$MAIL_PORT/api/v1/messages")"
+echo "== monitoring (Grafana keeps its default admin / admin login: the smoke env sets no password)"
+targets_up() {
+  local json; json=$(curl -fsS "http://localhost:$PROM_PORT/api/v1/targets") || return 1
+  python3 - "$json" <<'PY'
+import json, sys
+t = json.loads(sys.argv[1])["data"]["activeTargets"]
+names = {x["labels"]["job"] for x in t}
+sys.exit(0 if {"backend", "scraper", "prometheus"} <= names and all(x["health"] == "up" for x in t) else 1)
+PY
+}
+retry 20 targets_up && ok "Prometheus targets (backend, scraper, prometheus) are all UP" || bad "a Prometheus target is down"
+contains "Grafana reachable at /grafana/" '"database": "ok"' "$(curl -fsS "$BASE/grafana/api/health")"
+dash=$(curl -fsS -u "admin:admin" "$BASE/grafana/api/search?type=dash-db")
+contains "dashboard 'App health' provisioned" "App health" "$dash"
+contains "dashboard 'Scraper' provisioned" '"title":"Scraper"' "$dash"
+contains "Prometheus data source provisioned" '"uid": "prometheus"' "$(curl -fsS -u "admin:admin" "$BASE/grafana/api/datasources/uid/prometheus" | python3 -m json.tool)"
+retry 10 bash -c "curl -fsS -G 'http://localhost:$PROM_PORT/api/v1/query' --data-urlencode 'query=sum(http_requests_total)' | grep -q '\"result\":\[{'" && ok "backend request metrics are being collected" || bad "no backend metrics"
+# The pipeline run above happened in a separate `exec` process, so its counters are not in the served process;
+# what Prometheus can always see from the served scraper is its own gauges.
+retry 10 bash -c "curl -fsS -G 'http://localhost:$PROM_PORT/api/v1/query' --data-urlencode 'query=scraper_run_in_progress' | grep -q '\"result\":\[{'" && ok "scraper metrics are being collected" || bad "no scraper metrics"
 
 rm -f "$ADMIN_JAR"
 echo; echo "smoke test: $pass passed, $fail failed"
