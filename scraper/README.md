@@ -15,7 +15,7 @@ Not built, by design: **Indeed** (Cloudflare CAPTCHA page on search URLs), **Nau
 (real job-search URLs are blocked by an active bot-detection wall). Both are beyond a plain
 robots.txt-respecting scraper; see "Notes on specific sources" below.
 
-LLM extraction (Ollama) is an optional stage: add `--extract` to a run. See "LLM extraction" below.
+Skills are read from each posting by a keyword search, see "Skills" below.
 
 ## Run locally
 ```bash
@@ -77,30 +77,21 @@ Current architecture requires only one class per site; adding Internshala and Mi
 
 ## How the pipeline flows
 discover -> fetch -> normalize -> (skip if content hash unchanged) -> store.
-`source`, `company`, `url`, `external_id`, `scraped_at`, `content_hash` are set by code, never by the source or an LLM.
+`source`, `company`, `url`, `external_id`, `scraped_at`, `content_hash` are set by code, never by the source.
 
-## LLM extraction (optional)
-`scraper run ... --extract` sends each kept posting that has enough text (`EXTRACTION_MIN_CHARS`, default 300) to a
-local Ollama model and stores the answer under `extraction` in the record, separate from everything the code sets.
-It fills: `skills`, `degree_required`, `graduation_years`, `work_mode`, `salary_min/max/currency/period`,
-`work_authorization_restricted` + the quoted sentence.
+## Skills
+A posting's skills decide how well it matches a student, so every job is sent to the backend with a list of them. In order:
+1. **The source's own skill tags**, when it has them (Shine, Internshala, Unstop).
+2. **A keyword search of the title and description** (`skills.py`), for sources that list requirement sentences instead
+   (Microsoft, Google, Greenhouse). It looks for names from a fixed list, as whole words, ignoring case: "Python, SQL and
+   Azure" gives `python`, `sql`, `azure`. Spellings are mapped to one name (`k8s` -> `kubernetes`).
 
-```bash
-ollama serve &                 # needs Ollama installed; default model: qwen2.5:3b (fits a 4 GB GPU)
-ollama pull qwen2.5:3b
-./venv/bin/scraper run --source greenhouse --location India --extract
-./venv/bin/scraper extract-file posting.txt --title "Software Engineer"   # try the model on one saved posting
-```
-- **Nothing is trusted blindly.** Every value is checked against the posting text (`extraction.ground`): skills and
-  years must appear in it, a work-authorization restriction needs a quotable sentence, a degree level needs a
-  matching word, salary figures must appear and units (lakh, K...) are multiplied in code, not by the model.
-  Whatever fails is set to null.
-- **Re-runs are cheap.** A job is re-extracted only if its text changed or the model/prompt (`model|prompt_version`) did.
-- **Failures never lose a job.** It is saved without `extraction`, logged in `dead_letter.jsonl` (stage `extraction`), and retried next run.
+To add a skill, add one line to `SKILLS` in `src/scraper/skills.py` (name, then other spellings). Words that are also
+everyday English (`go`, `r`, `c`, `spring`, `express`, `oracle`) are only listed in an unambiguous form (`golang`,
+`spring boot`, `express.js`, `oracle database`), and names follow `backend/curriculum.yaml` where they overlap.
+Re-sends every run, so a changed list reaches the backend on the next cycle without a new posting.
+
 - `jobs.jsonl` is append-only: if a job is updated, a new line is added and the **last line for an id wins**.
-- Limits of a 3B model: skills can include loose phrases on non-technical text, and when a posting lists degree
-  alternatives ("Master's or Doctorate") it may not pick the lowest. Listing-card sources (Internshala) have too
-  little text and are skipped.
 
 ## Firecrawl (used by Shine)
 Firecrawl is self-hosted from the `firecrawl/` folder: `cd ../firecrawl && docker compose up -d --build`, then it answers on

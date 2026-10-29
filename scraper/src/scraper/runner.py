@@ -1,4 +1,4 @@
-"""Run one source end to end: discover -> fetch -> normalize -> store, optionally extract and push to the backend."""
+"""Run one source end to end: discover -> fetch -> normalize -> store, optionally pushing to the backend."""
 import logging
 import time
 
@@ -6,7 +6,6 @@ import httpx
 
 from scraper.adapters import REGISTRY, get_adapter
 from scraper.config import Settings
-from scraper.extraction import OllamaExtractor
 from scraper.http import PoliteClient
 from scraper.metrics import LAST_SUCCESS, RUN_DURATION, RUNS
 from scraper.models import SearchFilters
@@ -32,10 +31,8 @@ def run_source(
     client: PoliteClient,
     filters: SearchFilters,
     *,
-    extract: bool = False,
     push: bool = False,
     backend_client: httpx.Client | None = None,
-    extractor: OllamaExtractor | None = None,
 ) -> tuple[RunStats, PushStats | None, JsonlStorage]:
     """One scrape run. With push=True every saved or unchanged job is also sent to the backend, which
     decides inserted / updated / unchanged (and refreshes last_seen_at). Raises only for setup errors;
@@ -43,20 +40,16 @@ def run_source(
     started = time.perf_counter()
     adapter = get_adapter(source, client=client, settings=settings)
     storage = JsonlStorage(settings.output_dir)
-    owns_extractor = extractor is None and extract
-    extractor = extractor or (OllamaExtractor(settings) if extract else None)
     pusher = BackendPusher(settings, storage, client=backend_client, india_portal=adapter.india_portal) if push else None
 
     try:
-        stats = run_pipeline(adapter, filters, storage, settings, extractor, on_record=pusher.add if pusher else None)
+        stats = run_pipeline(adapter, filters, storage, settings, on_record=pusher.add if pusher else None)
         push_stats = pusher.flush() if pusher else None
     except Exception:
         RUNS.labels(source, "error").inc()
         raise
     finally:
         RUN_DURATION.labels(source).observe(time.perf_counter() - started)
-        if extractor and owns_extractor:
-            extractor.close()
         if pusher and backend_client is None:
             pusher.close()
     RUNS.labels(source, "ok").inc()

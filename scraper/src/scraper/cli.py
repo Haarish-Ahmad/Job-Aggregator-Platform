@@ -1,15 +1,12 @@
-import json
 import logging
 import signal
 import threading
-from pathlib import Path
 from typing import Annotated
 
 import typer
 
 from scraper.adapters import REGISTRY
 from scraper.config import Settings
-from scraper.extraction import OllamaExtractor
 from scraper.http import PoliteClient
 from scraper.runner import build_filters, run_source
 from scraper.serve import serve as serve_forever
@@ -31,7 +28,6 @@ def run(
     location: Annotated[list[str] | None, typer.Option(help="Location (repeatable)")] = None,
     company: Annotated[list[str] | None, typer.Option(help="Greenhouse board token (repeatable); default: GREENHOUSE_COMPANIES")] = None,
     limit: Annotated[int, typer.Option(help="Max jobs to fetch this run")] = 20,
-    extract: Annotated[bool, typer.Option(help="Run LLM extraction (needs Ollama running)")] = False,
     push: Annotated[bool, typer.Option(help="Also send every job to the backend (BACKEND_URL + INGEST_TOKEN)")] = False,
     verbose: bool = False,
 ) -> None:
@@ -50,13 +46,12 @@ def run(
     filters = build_filters(source, settings, query, location, limit)
     client = PoliteClient(settings.user_agent, settings.request_delay_seconds)
     try:
-        stats, push_stats, storage = run_source(source, settings, client, filters, extract=extract, push=push)
+        stats, push_stats, storage = run_source(source, settings, client, filters, push=push)
     finally:
         client.close()
     typer.echo(
         f"discovered={stats.discovered} saved={stats.saved} "
         f"unchanged={stats.unchanged} filtered={stats.filtered} failed={stats.failed}"
-        + (f" extracted={stats.extracted} extraction_failed={stats.extraction_failed}" if extract else "")
     )
     if push_stats:
         typer.echo(f"backend: {push_stats.summary()}")
@@ -84,21 +79,6 @@ def serve(
     for sig in (signal.SIGINT, signal.SIGTERM):
         signal.signal(sig, lambda *_: stop.set())
     serve_forever(settings, stop)
-
-
-@app.command("extract-file")
-def extract_file(
-    path: Annotated[Path, typer.Argument(help="Text file containing a job posting")],
-    title: Annotated[str, typer.Option(help="Job title, if known")] = "",
-) -> None:
-    """Run LLM extraction on one saved posting and print the result (for tuning prompts/models)."""
-    settings = Settings()
-    extractor = OllamaExtractor(settings)
-    try:
-        result = extractor.extract(title, path.read_text())
-    finally:
-        extractor.close()
-    typer.echo(json.dumps(result.model_dump(mode="json"), indent=2))
 
 
 if __name__ == "__main__":

@@ -3,9 +3,6 @@ from prometheus_client import Counter, Gauge, Histogram
 
 PAGES = Counter("scraper_pages_total", "Pages fetched from sources", ["source", "outcome"])
 JOBS = Counter("scraper_jobs_total", "Jobs processed by outcome (saved, unchanged, filtered, failed)", ["source", "outcome"])
-EXTRACTIONS = Counter("scraper_extractions_total", "LLM extractions by result (ok, failed)", ["result"])
-LLM_LATENCY = Histogram("scraper_llm_latency_seconds", "Ollama extraction latency",
-                        buckets=(0.5, 1, 2, 5, 10, 20, 40, 80, 160))
 PUSHED = Counter("scraper_push_records_total", "Records sent to the backend by result", ["status"])
 PUSH_BATCHES = Counter("scraper_push_batches_total", "Batches sent to the backend by result (ok, failed)", ["result"])
 RUNS = Counter("scraper_runs_total", "Scrape runs by result (ok, error)", ["source", "result"])

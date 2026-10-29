@@ -1,5 +1,5 @@
 import { NOW, job } from "../test/fixtures";
-import { deadline, freshness, jobTypeLabel, parseList, relativeDays, sourceLabel, whereLabel } from "./format";
+import { companyHue, deadline, freshness, initials, jobTypeLabel, parseList, relativeDays, sourceLabel, whereLabel, workModeLabel } from "./format";
 
 describe("freshness", () => {
   it("is fresh when the scraper saw the posting in the last 3 days", () => {
@@ -60,5 +60,25 @@ describe("labels", () => {
   });
   it("parseList lowercases, trims and dedupes", () => {
     expect(parseList(" Python, SQL ,python,, ")).toEqual(["python", "sql"]);
+  });
+  it("initials takes the first letters of up to two words", () => {
+    expect(initials("Acme Corp")).toBe("AC");
+    expect(initials("recruit crm pvt ltd")).toBe("RC");
+    expect(initials("(Zeta)")).toBe("Z");
+    expect([initials(""), initials(null)]).toEqual(["?", "?"]);
+  });
+  it("workModeLabel names the mode only when the source gives one", () => {
+    expect(workModeLabel({ work_mode: "onsite", is_remote: false })).toBe("On-site");
+    expect(workModeLabel({ work_mode: "hybrid", is_remote: false })).toBe("Hybrid");
+    expect(workModeLabel({ work_mode: null, is_remote: true })).toBe("Remote");
+    expect(workModeLabel({ work_mode: null, is_remote: false })).toBeNull();
+  });
+  it("companyHue is a stable hue per company", () => {
+    expect(companyHue("Acme Corp")).toBe(companyHue("Acme Corp"));
+    expect(companyHue("Acme Corp")).not.toBe(companyHue("Globex"));
+    for (const name of ["Acme Corp", "Globex", "", null]) {
+      expect(companyHue(name)).toBeGreaterThanOrEqual(0);
+      expect(companyHue(name)).toBeLessThan(360);
+    }
   });
 });

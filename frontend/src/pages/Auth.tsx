@@ -1,7 +1,20 @@
-import { useState, type FormEvent } from "react";
+import { useState, type FormEvent, type ReactNode } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
+import { Brand } from "../components/Layout";
 import { useAuth } from "../lib/auth";
 import { parseList } from "../lib/format";
+
+function AuthShell({ title, children }: { title: string; children: ReactNode }) {
+  return (
+    <div className="auth">
+      <Brand />
+      <div className="auth-card">
+        <div className="auth-bar">{title}</div>
+        {children}
+      </div>
+    </div>
+  );
+}
 
 function useSubmit(action: () => Promise<void>) {
   const [error, setError] = useState<string>();
@@ -32,24 +45,27 @@ export function LoginPage() {
     navigate(from, { replace: true });
   });
   return (
-    <div className="auth">
-      <form className="card" onSubmit={onSubmit}>
+    <AuthShell title="Welcome back">
+      <form className="auth-body" onSubmit={onSubmit}>
         <h1>Sign in</h1>
-        <label>
-          Email
-          <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required autoComplete="email" />
-        </label>
-        <label>
-          Password
-          <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} required autoComplete="current-password" />
-        </label>
+        <p className="lead">Pick up where you left off: new matches are waiting.</p>
+        <div className="stack">
+          <label>
+            <span>Email</span>
+            <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required autoComplete="email" />
+          </label>
+          <label>
+            <span>Password</span>
+            <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} required autoComplete="current-password" />
+          </label>
+        </div>
         {error && <p className="form-error" role="alert">{error}</p>}
-        <button className="btn primary" disabled={busy}>{busy ? "Signing in…" : "Sign in"}</button>
+        <button className="btn primary block" disabled={busy}>{busy ? "Signing in…" : "Sign in"}</button>
         <p className="alt">
           New here? <Link to="/register">Create an account</Link>
         </p>
       </form>
-    </div>
+    </AuthShell>
   );
 }
 
@@ -71,30 +87,35 @@ export function RegisterPage() {
     navigate("/", { replace: true });
   });
   return (
-    <div className="auth">
-      <form className="card" onSubmit={onSubmit}>
+    <AuthShell title="Sign up">
+      <form className="auth-body" onSubmit={onSubmit}>
         <h1>Create your account</h1>
-        <label>Name<input value={f.name} onChange={set("name")} required autoComplete="name" /></label>
-        <label>Email<input type="email" value={f.email} onChange={set("email")} required autoComplete="email" /></label>
-        <label>
-          Password <small>(at least 8 characters)</small>
-          <input type="password" value={f.password} onChange={set("password")} required minLength={8} autoComplete="new-password" />
-        </label>
-        <div className="row">
-          <label>Branch<input value={f.branch} onChange={set("branch")} placeholder="CSE" /></label>
-          <label>CGPA<input type="number" step="0.01" min="0" max="10" value={f.cgpa} onChange={set("cgpa")} /></label>
-          <label>Graduation year<input type="number" min="2000" max="2100" value={f.grad_year} onChange={set("grad_year")} required /></label>
+        <p className="lead">Tell us what you know, and we will rank jobs by how well they fit.</p>
+        <div className="stack">
+          <label><span>Name</span><input value={f.name} onChange={set("name")} required autoComplete="name" /></label>
+          <label><span>Email</span><input type="email" value={f.email} onChange={set("email")} required autoComplete="email" /></label>
+          <label>
+            <span>Password <small>(at least 8 characters)</small></span>
+            <input type="password" value={f.password} onChange={set("password")} required minLength={8} autoComplete="new-password" />
+          </label>
         </div>
-        <label>
-          Skills <small>(comma separated)</small>
-          <input value={f.skills} onChange={set("skills")} placeholder="python, sql, react" />
-        </label>
+        <div className="stack row">
+          <label><span>Branch</span><input value={f.branch} onChange={set("branch")} placeholder="CSE" /></label>
+          <label><span>CGPA</span><input type="number" step="0.01" min="0" max="10" value={f.cgpa} onChange={set("cgpa")} /></label>
+          <label><span>Graduation year</span><input type="number" min="2000" max="2100" value={f.grad_year} onChange={set("grad_year")} required /></label>
+        </div>
+        <div className="stack">
+          <label>
+            <span>Skills <small>(comma separated)</small></span>
+            <input value={f.skills} onChange={set("skills")} placeholder="python, sql, react" />
+          </label>
+        </div>
         {error && <p className="form-error" role="alert">{error}</p>}
-        <button className="btn primary" disabled={busy}>{busy ? "Creating…" : "Create account"}</button>
+        <button className="btn primary block" disabled={busy}>{busy ? "Creating…" : "Create account"}</button>
         <p className="alt">
           Already registered? <Link to="/login">Sign in</Link>
         </p>
       </form>
-    </div>
+    </AuthShell>
   );
 }

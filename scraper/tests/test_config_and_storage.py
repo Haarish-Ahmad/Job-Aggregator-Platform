@@ -5,28 +5,12 @@ from scraper.models import JobRecord
 from scraper.storage.jsonl import JsonlStorage
 
 
-def settings(monkeypatch, **env):
-    for name in ("OLLAMA_HOST", "OLLAMA_URL"):
-        monkeypatch.delenv(name, raising=False)
-    for name, value in env.items():
+def test_leftover_ollama_settings_in_an_old_env_file_are_ignored(monkeypatch):
+    """Existing deployments still have OLLAMA_* and SERVE_EXTRACT in their .env: that must not break start-up."""
+    for name, value in {"OLLAMA_HOST": "http://old:11434", "OLLAMA_MODEL": "qwen2.5:3b", "SERVE_EXTRACT": "true"}.items():
         monkeypatch.setenv(name, value)
-    return Settings(_env_file=None)
-
-
-def test_ollama_host_is_the_primary_name(monkeypatch):
-    assert settings(monkeypatch, OLLAMA_HOST="http://host.docker.internal:11434").ollama_host == "http://host.docker.internal:11434"
-
-
-def test_old_ollama_url_name_still_works(monkeypatch):
-    assert settings(monkeypatch, OLLAMA_URL="http://old:11434").ollama_host == "http://old:11434"
-
-
-def test_ollama_host_wins_when_both_are_set(monkeypatch):
-    assert settings(monkeypatch, OLLAMA_HOST="http://new:1", OLLAMA_URL="http://old:2").ollama_host == "http://new:1"
-
-
-def test_default_is_local_ollama(monkeypatch):
-    assert settings(monkeypatch).ollama_host == "http://localhost:11434"
+    settings = Settings(_env_file=None)
+    assert not hasattr(settings, "ollama_host") and not hasattr(settings, "serve_extract")
 
 
 def test_serve_sources_parse(monkeypatch):

@@ -35,6 +35,17 @@ it("links each card to its detail page and shows freshness", async () => {
   expect(screen.getByText(/Last checked/)).toBeInTheDocument();
 });
 
+it("each card has an Apply button that opens the original posting, and never a javascript: link", async () => {
+  jobs.mockResolvedValue({ jobs: [job({ id: 1 }), job({ id: 2, title: "Bad Link", apply_url: "javascript:alert(1)" })], total: 2 });
+  page();
+  const apply = await screen.findByRole("link", { name: /Apply for Python Developer at Acme Corp/ });
+  expect(apply).toHaveAttribute("href", "https://acme.example/jobs/1");
+  expect(apply).toHaveAttribute("target", "_blank");
+  expect(apply).toHaveAttribute("rel", expect.stringContaining("noopener"));
+  expect(screen.queryByRole("link", { name: /Apply for Bad Link/ })).not.toBeInTheDocument();
+  expect(screen.getByRole("link", { name: "Details for Bad Link" })).toHaveAttribute("href", "/jobs/2");
+});
+
 it("shows a helpful empty state", async () => {
   jobs.mockResolvedValue({ jobs: [], total: 0 });
   page();
@@ -65,6 +76,18 @@ it("puts filters in the URL and queries the API with them", async () => {
   await waitFor(() => expect(jobs).toHaveBeenLastCalledWith(expect.objectContaining({ job_type: "internship", q: "backend" })));
   await userEvent.click(screen.getByLabelText("Hide closed"));
   await waitFor(() => expect(jobs).toHaveBeenLastCalledWith(expect.objectContaining({ hide_expired: true })));
+});
+
+it("the category row filters by job type and shows which one is selected", async () => {
+  jobs.mockResolvedValue({ jobs: [job()], total: 1 });
+  page();
+  await screen.findByText("Python Developer");
+  const row = screen.getByRole("group", { name: "Job type" });
+  expect(within(row).getByRole("button", { name: "All jobs" })).toHaveAttribute("aria-pressed", "true");
+  await userEvent.click(within(row).getByRole("button", { name: "Internships" }));
+  await waitFor(() => expect(jobs).toHaveBeenLastCalledWith(expect.objectContaining({ job_type: "internship" })));
+  expect(within(row).getByRole("button", { name: "Internships" })).toHaveAttribute("aria-pressed", "true");
+  expect(screen.getByLabelText("Type")).toHaveValue("internship");
 });
 
 it("changing a filter goes back to page 1, and clear filters resets", async () => {

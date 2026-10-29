@@ -22,10 +22,12 @@ function Shell() {
       <h1>Analytics</h1>
       <div className="subnav">
         <nav aria-label="Analytics">
-          <NavLink to={`skills${q}`}>Skills in demand</NavLink>
-          <NavLink to={`companies${q}`}>Companies & hiring</NavLink>
-          {admin && <NavLink to={`skill-gap${q}`}>Skill gap</NavLink>}
-          {admin && <NavLink to={`curriculum${q}`}>Curriculum alignment</NavLink>}
+          {/* Absolute paths: under the "analytics/*" splat, relative links resolve against the current tab
+              (/analytics/companies/skills), which matches nothing. */}
+          <NavLink to={`/analytics/skills${q}`}>Skills in demand</NavLink>
+          <NavLink to={`/analytics/companies${q}`}>Companies & hiring</NavLink>
+          {admin && <NavLink to={`/analytics/skill-gap${q}`}>Skill gap</NavLink>}
+          {admin && <NavLink to={`/analytics/curriculum${q}`}>Curriculum alignment</NavLink>}
         </nav>
         <label>
           Where

@@ -14,14 +14,16 @@ export function MatchesPage() {
   const hasProfile = !!user && (user.skills.length > 0 || user.cgpa !== null);
   return (
     <>
-      <h1>My matches</h1>
-      <p className="lead">
-        Jobs you are eligible for (deadline, CGPA, branch, graduation year), ranked by how many of the required skills you have.
-        Keep your <Link to="/profile">profile</Link> up to date for better results.
-      </p>
-      <div className="filters card">
-        <label className="grow">
-          Minimum match: <strong>{minScore}%</strong>
+      <section className="page-head">
+        <h1>My matches</h1>
+        <p className="lead">
+          Jobs you are eligible for (deadline, CGPA, branch, graduation year), ranked by how many of the required skills you have.
+          Keep your <Link to="/profile">profile</Link> up to date for better results.
+        </p>
+      </section>
+      <div className="toolbar">
+        <label className="field grow">
+          <span>Minimum match: <strong>{minScore}%</strong></span>
           <input type="range" min={0} max={100} step={10} value={minScore} onChange={(e) => setMinScore(Number(e.target.value))} />
         </label>
         <label className="check">

@@ -235,6 +235,15 @@ describe("analytics", () => {
     expect(screen.getByText("Acme")).toBeInTheDocument();
     expect(screen.getByText("active postings")).toBeInTheDocument();
   });
+  it("tab links point at sibling tabs, and the current one is marked active", async () => {
+    signedIn();
+    m.companies.mockResolvedValue({ totals: { active_jobs: 1, remote: 0, india: 1, companies: 1 }, top_companies: [], by_type: [], by_source: [], weekly: [] });
+    renderAt(<App />, "/analytics/companies?scope=india");
+    const companies = await screen.findByRole("link", { name: "Companies & hiring" });
+    expect(companies).toHaveAttribute("href", "/analytics/companies?scope=india");
+    expect(companies).toHaveClass("active");
+    expect(screen.getByRole("link", { name: "Skills in demand" })).toHaveAttribute("href", "/analytics/skills?scope=india");
+  });
   it("shows curriculum alignment to admins", async () => {
     signedIn({ role: "admin" });
     m.curriculum.mockResolvedValue({ total_jobs_with_skills: 50, alignment_pct: 62.5, courses: [{ course: "Databases", jobs_mentioning: 20, jobs_pct: 40, skills: [] }], uncovered_skills: [{ skill: "kubernetes", jobs: 9 }] });

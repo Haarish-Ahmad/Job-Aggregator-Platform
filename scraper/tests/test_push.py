@@ -6,7 +6,7 @@ import httpx
 import pytest
 
 from scraper.config import Settings
-from scraper.models import EmploymentType, ExtractionResult, JobExtraction, JobRecord, WorkMode
+from scraper.models import EmploymentType, JobRecord, WorkMode
 from scraper.push import (
     MAX_LOCATION,
     BackendPusher,
@@ -71,11 +71,20 @@ def test_unknown_employment_type_is_omitted():
     assert to_payload(record(employment_type=EmploymentType.unknown))["job_type"] is None
 
 
-def test_extraction_skills_and_graduation_years_win_over_qualification_bullets():
-    ext = ExtractionResult(model="m", prompt_version="1", extracted_at=datetime.now(UTC),
-                           data=JobExtraction(skills=["Rust", "Go"], graduation_years=[2027, 2026, 1999], work_mode=WorkMode.hybrid))
-    p = to_payload(record(extraction=ext))
-    assert p["required_skills"] == ["rust", "go"] and p["allowed_grads"] == [2026, 2027] and p["work_mode"] == "hybrid"
+def test_skills_are_read_from_the_text_when_the_source_lists_only_sentences():
+    sentences = ["Bachelor's degree in Computer Science or a related field", "2+ years of experience building services"]
+    p = to_payload(record(required_qualifications=sentences, title="Software Engineer",
+                          description_text="You will build services in Python on Azure with Kubernetes."))
+    assert p["required_skills"] == ["python", "azure", "kubernetes"]
+
+
+def test_the_sources_own_skills_come_before_the_text_search():
+    assert to_payload(record(description_text="Uses Docker and Java."))["required_skills"] == ["python", "sql"]
+
+
+def test_a_posting_that_names_nothing_has_no_skills():
+    p = to_payload(record(required_qualifications=["Strong communication skills"], description_text="Join our friendly team."))
+    assert p["required_skills"] == []
 
 
 def test_values_are_cut_to_the_backend_limits():
@@ -259,9 +268,8 @@ def test_fingerprint_is_stable_for_the_same_record():
 
 def test_fingerprint_changes_when_anything_sent_changes():
     base = fingerprint()
-    ext = ExtractionResult(model="m", prompt_version="1", extracted_at=datetime.now(UTC), data=JobExtraction(skills=["Rust"]))
     changed = [fingerprint(company="Other Co"), fingerprint(title="New title"), fingerprint(locations=["Pune"]),
-               fingerprint(description_text="different text"), fingerprint(required_qualifications=["Go"]), fingerprint(extraction=ext),
+               fingerprint(description_text="different text"), fingerprint(required_qualifications=["Go"]),
                fingerprint(posted_date=date(2026, 10, 1)), fingerprint(url="https://www.shine.com/jobs/x/acme/43")]
     assert base not in changed and len(set(changed)) == len(changed)
 

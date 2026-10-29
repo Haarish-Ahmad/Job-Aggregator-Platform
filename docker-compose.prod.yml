@@ -19,9 +19,3 @@ services:
   nginx:
     <<: *prebuilt
     image: ${IMAGE_PREFIX:-ghcr.io/haarish-ahmad/job-aggregator-platform}-nginx:${IMAGE_TAG:-latest}
-  prometheus:
-    <<: *prebuilt
-    image: ${IMAGE_PREFIX:-ghcr.io/haarish-ahmad/job-aggregator-platform}-prometheus:${IMAGE_TAG:-latest}
-  grafana:
-    <<: *prebuilt
-    image: ${IMAGE_PREFIX:-ghcr.io/haarish-ahmad/job-aggregator-platform}-grafana:${IMAGE_TAG:-latest}

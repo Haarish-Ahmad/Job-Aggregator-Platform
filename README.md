@@ -1,7 +1,7 @@
 # Job Aggregator Platform
 
 Off-campus jobs and internships for students. The platform **scrapes** job boards and company career pages
-(with Firecrawl), optionally **extracts** structured fields with a locally hosted LLM (Ollama), stores the listings,
+(with Firecrawl), picks out the **skills** each posting asks for, stores the listings,
 **matches** them to each student's profile, **emails** alerts, and gives the placement cell **analytics**
 (skills in demand, skill gap, hiring patterns, curriculum alignment).
 
@@ -19,17 +19,12 @@ Taken from the running stack with live data (not mock-ups).
 |---|---|
 | ![Most requested skills](docs/screenshots/analytics.png) | ![Job detail with apply link](docs/screenshots/detail.png) |
 
-| Grafana: API health | Grafana: scraper pipeline |
-|---|---|
-| ![API health dashboard](docs/screenshots/grafana-api.png) | ![Scraper pipeline dashboard](docs/screenshots/grafana-scraper.png) |
-
 ## Architecture
 
 ```mermaid
 flowchart LR
   subgraph External["Run outside this repo's compose (see Prerequisites)"]
     FC[Firecrawl :3002]
-    OL[Ollama :11434]
   end
   subgraph Sites["Job sites"]
     S1[Shine / Internshala / Unstop<br/>Greenhouse / Microsoft / Google / YC]
@@ -37,16 +32,15 @@ flowchart LR
   Browser((Browser)) -->|"/  /api  /grafana"| NGX[nginx<br/>single entry point]
   NGX -->|/| FE[frontend<br/>React + nginx]
   NGX -->|/api/| BE[backend<br/>FastAPI]
-  NGX -->|/grafana/| GF[Grafana]
   SC[scraper<br/>serve mode] -->|render pages| FC
-  SC -->|extract skills| OL
   SC -->|scrape| S1
   SC -->|"POST /internal/jobs<br/>X-Ingest-Token"| BE
   BE --> DB[(PostgreSQL)]
+  NGX -->|/grafana/| GF[Grafana<br/>dashboards]
+  GF --> PR[Prometheus<br/>metrics store]
+  PR -->|/metrics every 15s| BE
+  PR -->|/metrics every 15s| SC
   BE -->|SMTP alerts| MP[Mailpit<br/>dev inbox]
-  PR[Prometheus] -->|/metrics| BE
-  PR -->|/metrics| SC
-  GF --> PR
 ```
 
 | Service | What it is | Port (host) |
@@ -56,13 +50,13 @@ flowchart LR
 | `backend` | FastAPI + SQLAlchemy + Alembic; runs migrations and the admin bootstrap on start | internal |
 | `db` | PostgreSQL 16 (named volume `pgdata`) | internal |
 | `scraper` | `scraper serve`: scheduled scrape, push to the backend, `/metrics`, `/health` | internal |
-| `prometheus` | Scrapes backend and scraper; alert rules | `127.0.0.1:9090` |
-| `grafana` | Datasource and two dashboards provisioned from files | via `/grafana/` |
+| `prometheus` | Reads `/metrics` from the backend and scraper every 15 s and keeps 15 days of history (volume `prom_data`) | `127.0.0.1:9090` |
+| `grafana` | Draws the two dashboards (**App health**, **Scraper**) from Prometheus; log in with `GRAFANA_ADMIN_USER` / `GRAFANA_ADMIN_PASSWORD` (default `admin` / `admin`) | via `/grafana/` |
 | `mailpit` | Catches alert emails in development | `127.0.0.1:8025` |
 
 ### How data flows
 
-1. The **scraper** discovers postings on each source, fetches and normalises them, and optionally extracts skills with Ollama.
+1. The **scraper** discovers postings on each source, fetches and normalises them, and finds the skills they name (the source's own tags, or a keyword search of the text).
 2. Every processed job is sent to `POST /internal/jobs` (header `X-Ingest-Token`). The backend upserts on `(source, external_id)`:
    `inserted`, `updated` (content changed), `unchanged` (re-seen: `last_seen_at` is refreshed) or `rejected` with a reason.
    One bad record never fails the batch. Every run re-sends everything it saw, so a failed push heals itself on the next run.
@@ -75,14 +69,10 @@ flowchart LR
 * **Firecrawl** (needed for Shine, whose pages only exist after JavaScript runs; other sources work without it).
   Self-host it from <https://github.com/firecrawl/firecrawl> (`docker compose up -d --build` in its folder, see its `SELF_HOST.md`).
   It should answer on `http://localhost:3002`. This repository does not embed it.
-* **Ollama** (optional, for skill/graduation-year extraction): <https://ollama.com>, then `ollama pull qwen2.5:3b`.
-  Containers reach it on the host, so it must listen on more than loopback:
-  `OLLAMA_HOST=0.0.0.0 ollama serve` (Linux/WSL), or set it for the service/app on macOS and Windows.
-  Extraction is **off by default** (`SERVE_EXTRACT=false`) because it is slow without a GPU.
 * For development only: Python 3.12 and Node 20.
 
-`host.docker.internal` is mapped for the scraper (`extra_hosts: host-gateway`), so Firecrawl and Ollama on your machine work on
-Docker Desktop and on Linux. To use remote ones instead, set `FIRECRAWL_API_URL` / `OLLAMA_HOST` in `.env`.
+`host.docker.internal` is mapped for the scraper (`extra_hosts: host-gateway`), so a Firecrawl on your machine works on
+Docker Desktop and on Linux. To use a remote one instead, set `FIRECRAWL_API_URL` in `.env`.
 
 ## Quick start
 
@@ -90,7 +80,7 @@ Docker Desktop and on Linux. To use remote ones instead, set `FIRECRAWL_API_URL`
 cp .env.example .env
 # Fill the REQUIRED values. Generate secrets with:
 python3 -c "import secrets; print(secrets.token_urlsafe(48))"     # SECRET_KEY, INGEST_TOKEN
-#   POSTGRES_PASSWORD (letters/digits only), GRAFANA_ADMIN_PASSWORD
+#   POSTGRES_PASSWORD (letters/digits only)
 #   optionally ADMIN_EMAIL + ADMIN_PASSWORD to get an admin account (needed for the skill-gap and curriculum analytics)
 
 docker compose up -d --build
@@ -101,19 +91,19 @@ docker compose ps          # wait until every service is "healthy" (first build 
 |---|---|
 | <http://localhost/> | The app (register, then browse; the first scrape runs at start-up and fills the list within minutes) |
 | <http://localhost/api/docs> | Interactive API documentation |
-| <http://localhost/grafana/> | Dashboards "API health" and "Scraper pipeline" (login with `GRAFANA_ADMIN_USER` / `GRAFANA_ADMIN_PASSWORD`) |
-| <http://localhost:9090/targets> | Prometheus targets (all should be UP) |
+| <http://localhost/grafana/> | Dashboards **App health** and **Scraper** (login `admin` / `admin` by default; Grafana asks you to change it, you can skip that on your own machine) |
+| <http://localhost:9090/targets> | Prometheus targets (all three should be UP); reachable from this machine only |
 | <http://localhost:8025/> | Mailpit inbox with the alert emails |
 
 Run a scrape by hand (small, with the scraper's own settings and credentials):
 
 ```bash
 docker compose exec scraper scraper run --source unstop --location India --limit 20 --push
-docker compose exec scraper scraper run --source microsoft --query intern --location India --limit 5 --push --extract
+docker compose exec scraper scraper run --source microsoft --query intern --location India --limit 5 --push
 docker compose exec scraper scraper sources      # list the sources
 ```
 
-Stop: `docker compose down` (add `-v` to also delete the database and Grafana data).
+Stop: `docker compose down` (add `-v` to also delete the database and the Prometheus and Grafana data).
 
 ### Deploying from prebuilt images
 
@@ -143,7 +133,7 @@ APP_ENV=dev DATABASE_URL=postgresql://jobs:jobs@localhost:5432/jobs uvicorn main
 # Scraper
 cd scraper && pytest && ruff check .
 
-# Scraper <-> backend integration (fixture markdown -> mocked Ollama -> ingest -> queryable via the API)
+# Scraper <-> backend integration (fixture markdown -> ingest -> queryable via the API)
 pytest tests/integration
 
 # Frontend (proxies /api to the backend on :8000, like nginx does)
@@ -160,17 +150,17 @@ bash scripts/smoke.sh        # builds and starts a separate stack, checks about 
 KEEP=1 bash scripts/smoke.sh # leave it running on http://localhost:8080
 ```
 
-It uses mock Firecrawl/Ollama servers (`scripts/ci_mocks.py`), so it needs no external services. It verifies every container is
-healthy, nginx routing and headers, auth, a scraper pipeline run **twice** (no duplicates), an alert email arriving in Mailpit,
-Prometheus targets UP and the provisioned Grafana dashboards. CI runs the same script.
+It uses a mock Firecrawl server (`scripts/ci_mocks.py`), so it needs no external services. It verifies every container is
+healthy, nginx routing and headers, auth, a scraper pipeline run **twice** (no duplicates), and an alert email arriving in
+Mailpit. CI runs the same script.
 
 ## CI/CD
 
 * `.github/workflows/ci.yml` (pull requests and branch pushes): backend lint, type-check, `alembic upgrade head` + `alembic check`
   against Postgres, tests; scraper lint and tests; scraper-to-backend integration tests; frontend lint, types, tests, build;
-  builds all six images; then the compose smoke test. No real LLM is ever needed.
+  builds all four images; then the compose smoke test. No real Firecrawl is ever needed.
 * `.github/workflows/release.yml` (push to `main` and `v*.*.*` tags): builds and pushes `ghcr.io/<owner>/<repo>-<service>` for
-  `backend`, `scraper`, `frontend`, `nginx`, `prometheus`, `grafana`, tagged `sha-<short>`, `latest` (main) and the semver on tags,
+  `backend`, `scraper`, `frontend`, `nginx`, tagged `sha-<short>`, `latest` (main) and the semver on tags,
   with OCI labels linking each package to the repository.
 
 ## Configuration reference
@@ -186,21 +176,20 @@ Everything is configured with environment variables; `.env.example` lists them w
 | `ADMIN_EMAIL`, `ADMIN_PASSWORD` | empty | If both set, this admin is created/updated at every backend start |
 | `CORS_ORIGINS` | `http://localhost` | Allowed browser origins (comma separated) |
 | `SESSION_COOKIE_SECURE` | `false` | `true` behind HTTPS |
-| `PUBLIC_URL` | `http://localhost` | Used in emails and Grafana's root URL |
+| `PUBLIC_URL` | `http://localhost` | Used in emails |
 | `STALE_DAYS` | `14` | Days unseen before a scraped posting is marked inactive |
 | `SMTP_HOST` `SMTP_PORT` `SMTP_USER` `SMTP_PASSWORD` `SMTP_STARTTLS` `MAIL_FROM` | Mailpit | Alert email delivery |
 | `ALERT_MIN_SCORE` | `60` | Minimum skills match (%) to be emailed |
 | `FIRECRAWL_API_URL`, `FIRECRAWL_API_KEY` | `http://host.docker.internal:3002` | Firecrawl endpoint (key optional) |
-| `OLLAMA_HOST`, `OLLAMA_MODEL` | `http://host.docker.internal:11434`, `qwen2.5:3b` | LLM extraction (`OLLAMA_URL` still read) |
 | `SERVE_SOURCES` | `unstop,shine,internshala` | Sources scraped each cycle |
 | `SERVE_LIMIT` | `300` | Max jobs per source per cycle |
 | `SCRAPE_INTERVAL_HOURS` | `12` | Time between cycles |
 | `RUN_ON_START` | `true` | Scrape right after start-up |
-| `SERVE_EXTRACT` | `false` | Run Ollama extraction during scheduled scrapes |
 | `REQUEST_DELAY_SECONDS`, `MAX_CONCURRENCY` | `1.5`, `2` | Politeness towards the sites |
 | `GREENHOUSE_COMPANIES` | list | Greenhouse board tokens |
-| `GRAFANA_ADMIN_USER` / `GRAFANA_ADMIN_PASSWORD` | `admin` / **required** | Grafana login |
-| `PROMETHEUS_PORT`, `PROMETHEUS_RETENTION`, `MAILPIT_UI_PORT`, `HTTP_PORT` | `9090`, `15d`, `8025`, `80` | Ports / retention |
+| `GRAFANA_ADMIN_USER` / `GRAFANA_ADMIN_PASSWORD` | `admin` / `admin` | Grafana's first login. Only applied when Grafana starts with an empty data volume; change it later in Grafana's profile page. Use real values before exposing the site |
+| `PROMETHEUS_PORT`, `PROMETHEUS_RETENTION` | `9090`, `15d` | Prometheus's page on this machine and how long it keeps history |
+| `MAILPIT_UI_PORT`, `HTTP_PORT` | `8025`, `80` | Ports |
 | `IMAGE_PREFIX`, `IMAGE_TAG` | local builds | Only for `docker-compose.prod.yml` |
 
 Backend-only variables read by the app but not exposed in compose: `APP_ENV` (default `production`), `DATABASE_URL`,
@@ -222,22 +211,22 @@ Interactive docs are at `/api/docs`. Session-cookie auth; routes marked *admin* 
 | GET | `/analytics/skill-gap`, `/analytics/curriculum` | *admin*; curriculum is `backend/curriculum.yaml` |
 | POST | `/internal/jobs` | *admin session or `X-Ingest-Token`*: scraper ingest |
 | POST | `/internal/alerts/run`, `/internal/maintenance/deactivate-stale` | admin session or ingest token; not exposed through nginx |
-| GET | `/health` (checks the DB), `/metrics` | `/metrics` is internal (Prometheus); nginx returns 404 for it |
+| GET | `/health` (checks the DB), `/metrics` | `/metrics` (Prometheus format) is internal; nginx returns 404 for it |
 
 ## Troubleshooting
 
 | Symptom | Cause / fix |
 |---|---|
-| `required variable … is missing a value` | Fill `POSTGRES_PASSWORD`, `SECRET_KEY`, `INGEST_TOKEN`, `GRAFANA_ADMIN_PASSWORD` in `.env`. |
+| `required variable … is missing a value` | Fill `POSTGRES_PASSWORD`, `SECRET_KEY`, `INGEST_TOKEN` in `.env`. |
 | Backend exits: `SECRET_KEY must be set…` | Intended safety check. Set `SECRET_KEY` (outside Docker, use `APP_ENV=dev`). |
 | `could not translate host name "db"` locally | You ran the backend outside Docker; use `localhost` in `DATABASE_URL`. |
 | Shine finds nothing / `Connection refused … 3002` | Firecrawl isn't running or isn't reachable from the container. Check `curl localhost:3002`, and `FIRECRAWL_API_URL`. |
-| `docker compose logs scraper` shows extraction failures | Ollama unreachable from the container. Start it with `OLLAMA_HOST=0.0.0.0`, check the model is pulled, or leave `SERVE_EXTRACT=false`. |
 | `backend rejected the ingest token (HTTP 401)` | `INGEST_TOKEN` differs between services; both read the same `.env` value, so restart both after editing. |
+| Grafana says the password is wrong | The login is only set the first time Grafana starts with an empty data volume. Change it in Grafana's profile page, or reset it: `docker compose exec grafana grafana cli admin reset-admin-password <new>`. |
+| A dashboard shows `No data` or zeros | Prometheus only has data from when it started. Wait a few minutes, and for the scraper panels until the next scrape cycle (every `SCRAPE_INTERVAL_HOURS`). Check <http://localhost:9090/targets>. |
 | Login works but you are logged out on refresh | Serving over HTTPS without `SESSION_COOKIE_SECURE=true` or from another origin without it in `CORS_ORIGINS`. |
 | 429 on sign-in | nginx limits sign-in/registration to 10 requests per minute per address. |
 | Port 80 in use | Set `HTTP_PORT=8080` (and `PUBLIC_URL=http://localhost:8080`). |
-| Grafana asks for a login | Use `GRAFANA_ADMIN_USER` / `GRAFANA_ADMIN_PASSWORD` from `.env`. |
 | Lists are empty after start | The first scrape takes a few minutes; watch `docker compose logs -f scraper`. |
 | Windows: `bad interpreter` in a container script | Line endings. `.gitattributes` forces LF for shell scripts and Dockerfiles; re-checkout after pulling it. |
 
@@ -245,15 +234,16 @@ Interactive docs are at `/api/docs`. Session-cookie auth; routes marked *admin* 
 
 ```
 backend/     FastAPI app, Alembic migrations, curriculum.yaml, tests, Dockerfile
-scraper/     source adapters, relevance filter, Ollama extraction, push + serve, tests, Dockerfile
+scraper/     source adapters, relevance filter, keyword skill finder, push + serve, tests, Dockerfile
 frontend/    React + Vite + TypeScript app, tests, Dockerfile
-infra/       nginx, prometheus (with rules), grafana (provisioning + dashboards)
+infra/       nginx (single entry point)
+monitoring/  Prometheus settings and Grafana data source + dashboards (mounted into the containers, not built)
 tests/integration/   scraper -> backend end-to-end tests
 scripts/     smoke.sh (whole-stack test), ci_mocks.py
-docs/        AUDIT.md, PLAN.md, DECISIONS.md
+docs/        screenshots for this README
 firecrawl/   (git-ignored) optional local checkout of Firecrawl
 ```
 
 ## Known limitations
 
-See the final section of [docs/AUDIT.md](docs/AUDIT.md) for the current list.
+The audit and decision log that listed these were removed from the repository; they remain in git history before this change.

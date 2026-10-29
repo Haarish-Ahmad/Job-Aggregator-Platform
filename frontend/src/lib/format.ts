@@ -81,6 +81,36 @@ export function sourceLabel(source: string | null): string {
   return { shine: "Shine", internshala: "Internshala", unstop: "Unstop", greenhouse: "Greenhouse", microsoft: "Microsoft Careers", google: "Google Careers", ycombinator: "Y Combinator" }[source] ?? source;
 }
 
+/** Only http(s) links become buttons; anything else (javascript:, data:) is shown as plain text. */
+export function safeUrl(url: string | null): string | null {
+  if (!url) return null;
+  try {
+    const u = new URL(url);
+    return u.protocol === "http:" || u.protocol === "https:" ? u.href : null;
+  } catch {
+    return null;
+  }
+}
+
+/** "Remote", "Hybrid" or "On-site" when the source says so; null when it doesn't (most postings). */
+export function workModeLabel(job: Pick<Job, "work_mode" | "is_remote">): string | null {
+  const mode = { remote: "Remote", hybrid: "Hybrid", onsite: "On-site" }[job.work_mode ?? ""];
+  return mode ?? (job.is_remote ? "Remote" : null);
+}
+
+/** Up to two capital letters for a company's placeholder cover ("Acme Corp" -> "AC"). */
+export function initials(name: string | null): string {
+  const words = (name ?? "").match(/[\p{L}\p{N}]+/gu) ?? [];
+  return words.slice(0, 2).map((w) => w[0].toUpperCase()).join("") || "?";
+}
+
+/** A stable hue per company, so the same employer always gets the same cover colour. */
+export function companyHue(name: string | null): number {
+  let h = 0;
+  for (const c of name ?? "") h = (h * 31 + c.charCodeAt(0)) >>> 0;
+  return h % 360;
+}
+
 export function parseList(text: string): string[] {
   return [...new Set(text.split(",").map((s) => s.trim().toLowerCase()).filter(Boolean))];
 }
