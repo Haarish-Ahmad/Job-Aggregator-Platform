@@ -76,7 +76,7 @@ function ResumeField({ file, onChange }: { file: File | null; onChange: (file: F
 export function LoginPage() {
   const { login } = useAuth();
   const navigate = useNavigate();
-  const from = (useLocation().state as { from?: string } | null)?.from ?? "/";
+  const from = (useLocation().state as { from?: string } | null)?.from ?? "/jobs";
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const { error, busy, onSubmit } = useSubmit(async () => {
@@ -125,7 +125,7 @@ export function RegisterPage() {
       grad_year: Number(f.grad_year),
       skills: parseList(f.skills),
     });
-    navigate("/", { replace: true });
+    navigate("/jobs", { replace: true });
   });
   return (
     <AuthShell title="Sign up">

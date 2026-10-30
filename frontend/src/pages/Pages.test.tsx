@@ -36,7 +36,7 @@ describe("auth guard", () => {
   });
   it("shows the app to signed-in users, with their name in the header", async () => {
     signedIn();
-    renderAt(<App />, "/");
+    renderAt(<App />, "/jobs");
     expect(await screen.findByRole("heading", { name: "Jobs & internships" })).toBeInTheDocument();
     expect(screen.getByText("Asha")).toBeInTheDocument();
   });
@@ -62,7 +62,7 @@ describe("auth guard", () => {
   it("signs out", async () => {
     signedIn();
     m.logout.mockResolvedValue();
-    renderAt(<App />, "/");
+    renderAt(<App />, "/jobs");
     await userEvent.click(await screen.findByRole("button", { name: "Sign out" }));
     expect(await screen.findByRole("heading", { name: "Sign in" })).toBeInTheDocument();
   });

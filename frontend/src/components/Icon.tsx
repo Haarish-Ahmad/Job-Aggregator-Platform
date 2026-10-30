@@ -20,6 +20,7 @@ const PATHS = {
   external: "M14 4h6v6M20 4l-9 9M18 14v5H5V6h5",
   left: "M15 18l-6-6 6-6",
   right: "M9 18l6-6-6-6",
+  arrow: "M5 12h14M13 6l6 6-6 6",
   logout: "M9 4H5v16h4M16 16l4-4-4-4M20 12H10",
   sparkle: "M12 3l2 6 6 2-6 2-2 6-2-6-6-2 6-2z",
 } as const;
