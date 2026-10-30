@@ -1,6 +1,8 @@
-import { useState, type FormEvent, type ReactNode } from "react";
+import { useState, type ChangeEvent, type FormEvent, type ReactNode } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
+import { Icon } from "../components/Icon";
 import { Brand } from "../components/Layout";
+import { RESUME_ACCEPT, fileSize, resumeProblem } from "../components/ResumeUpload";
 import { useAuth } from "../lib/auth";
 import { parseList } from "../lib/format";
 
@@ -32,6 +34,43 @@ function useSubmit(action: () => Promise<void>) {
     }
   }
   return { error, busy, onSubmit };
+}
+
+/** Optional resume picker. The file only lives in the form's state: nothing is uploaded yet. */
+function ResumeField({ file, onChange }: { file: File | null; onChange: (file: File | null) => void }) {
+  const [error, setError] = useState<string>();
+  function pick(e: ChangeEvent<HTMLInputElement>) {
+    const chosen = e.target.files?.[0];
+    if (!chosen) return; // dialog cancelled
+    const problem = resumeProblem(chosen);
+    setError(problem);
+    if (problem) e.target.value = ""; // so the same file can be picked again after fixing it
+    onChange(problem ? null : chosen);
+  }
+  return (
+    <>
+      <div className="stack">
+        {file ? (
+          <div className="resume-file">
+            <Icon name="file" size={20} />
+            <span className="resume-meta">
+              <strong>{file.name}</strong>
+              <small>{fileSize(file.size)}</small>
+            </span>
+            <button type="button" className="btn small ghost" onClick={() => onChange(null)} aria-label={`Remove ${file.name}`}>
+              Remove
+            </button>
+          </div>
+        ) : (
+          <label>
+            <span>Resume <small>(optional · PDF or DOCX, up to 5 MB)</small></span>
+            <input type="file" accept={RESUME_ACCEPT} onChange={pick} />
+          </label>
+        )}
+      </div>
+      {error && <p className="form-error" role="alert">{error}</p>}
+    </>
+  );
 }
 
 export function LoginPage() {
@@ -74,6 +113,8 @@ export function RegisterPage() {
   const navigate = useNavigate();
   const [f, setF] = useState({ name: "", email: "", password: "", branch: "", cgpa: "", grad_year: String(new Date().getFullYear() + 1), skills: "" });
   const set = (k: keyof typeof f) => (e: { target: { value: string } }) => setF({ ...f, [k]: e.target.value });
+  // Kept apart from `f`, which holds only strings. Not sent with the registration.
+  const [resume, setResume] = useState<File | null>(null);
   const { error, busy, onSubmit } = useSubmit(async () => {
     await register({
       name: f.name.trim(),
@@ -110,7 +151,8 @@ export function RegisterPage() {
             <input value={f.skills} onChange={set("skills")} placeholder="python, sql, react" />
           </label>
         </div>
-        {error && <p className="form-error" role="alert">{error}</p>}
+        <ResumeField file={resume} onChange={setResume} />
+        {error &&<p className="form-error" role="alert">{error}</p>}
         <button className="btn primary block" disabled={busy}>{busy ? "Creating…" : "Create account"}</button>
         <p className="alt">
           Already registered? <Link to="/login">Sign in</Link>

@@ -262,6 +262,22 @@ input[type=range] { accent-color: var(--brand); width: 100%; }
 .stack.row { grid-template-columns: repeat(3, 1fr); gap: 0; }
 .stack.row > label + label { border-top: 0; border-left: 1px solid var(--field); }
 .alt { margin: 0; text-align: center; color: var(--muted); }
+.stack input[type=file] { font-size: .9rem; color: var(--muted); cursor: pointer; padding-top: 6px; }
+.stack input[type=file]::file-selector-button { font: inherit; font-weight: 600; font-size: .85rem; padding: 6px 12px; margin-right: 12px; border-radius: 10px; border: 1px solid var(--border); background: var(--surface); color: var(--text); cursor: pointer; }
+.stack input[type=file]:hover::file-selector-button { border-color: var(--text); }
+.resume-file { display: flex; align-items: center; gap: 10px; padding: 10px 8px 10px 14px; }
+.resume-meta { display: grid; flex: 1; min-width: 0; }
+.resume-meta strong { font-size: .95rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.resume-meta small { color: var(--muted); font-size: .75rem; }
+.resume-upload { display: grid; gap: 6px; }
+.resume-box { display: flex; flex-direction: column; align-items: center; gap: 4px; text-align: center; padding: 24px 16px; border: 1px dashed var(--field); border-radius: var(--radius); background: var(--soft); }
+.resume-box > small { color: var(--muted); font-size: .85rem; }
+.resume-box > .btn { margin-top: 8px; }
+.resume-box.has-file { flex-direction: row; flex-wrap: wrap; gap: 12px; text-align: left; padding: 14px 16px; border-style: solid; border-color: var(--border); background: var(--surface); }
+.resume-box.has-file .resume-meta { flex: 1 1 160px; }
+.resume-icon { display: inline-grid; place-items: center; width: 44px; height: 44px; margin-bottom: 4px; border-radius: 50%; background: var(--surface); color: var(--text); box-shadow: var(--shadow-sm); }
+.resume-actions { display: flex; gap: 8px; }
+.resume-note { margin: 0; font-size: .8rem; color: var(--warn); background: var(--warn-bg); padding: 8px 12px; border-radius: 10px; }
 @media (max-width: 480px) {
   .stack.row { grid-template-columns: 1fr; }
   .stack.row > label + label { border-left: 0; border-top: 1px solid var(--field); }
