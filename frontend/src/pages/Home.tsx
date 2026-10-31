@@ -1,9 +1,9 @@
 import "@fontsource-variable/inter";
 import "@fontsource/instrument-serif/latin-400-italic.css";
 import type { ReactNode } from "react";
-import { Link, NavLink } from "react-router-dom";
+import { Link } from "react-router-dom";
 import { Icon, type IconName } from "../components/Icon";
-import { Brand } from "../components/Layout";
+import { BottomTabs, SiteHeader } from "../components/Layout";
 import { api } from "../lib/api";
 import { useAuth } from "../lib/auth";
 import { initials } from "../lib/format";
@@ -154,38 +154,14 @@ function MatchesPreview() {
 }
 
 export function HomePage() {
-  const { user, checking, logout } = useAuth();
+  const { user } = useAuth();
   return (
     <div className="home">
       <a className="skip" href="#main">
         Skip to content
       </a>
+      <SiteHeader />
       <div className="home-inner">
-        <header className="home-head">
-          <Link to="/" className="brand-link" aria-label="Job Aggregator home">
-            <Brand />
-          </Link>
-          <nav aria-label="Main" className="home-nav">
-            <NavLink to="/" end>Home</NavLink>
-            <NavLink to="/jobs">Jobs</NavLink>
-            <NavLink to="/matches">My matches</NavLink>
-            <NavLink to="/analytics">Analytics</NavLink>
-          </nav>
-          <div className="home-actions">
-            {checking ? null : user ? (
-              <>
-                <Link to="/profile" className="home-text-link">{user.name}</Link>
-                <button type="button" className="home-text-link" onClick={() => logout()}>Sign out</button>
-              </>
-            ) : (
-              <>
-                <Link to="/login" className="home-text-link">Log in</Link>
-                <Link to="/register" className="home-btn primary small">Sign up</Link>
-              </>
-            )}
-          </div>
-        </header>
-
         <main id="main" className="home-hero">
           <div className="home-copy">
             <p className="home-eyebrow">
@@ -222,6 +198,7 @@ export function HomePage() {
           ))}
         </section>
       </div>
+      <BottomTabs />
     </div>
   );
 }

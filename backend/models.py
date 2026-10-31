@@ -1,5 +1,5 @@
 from datetime import datetime,date
-from sqlalchemy import String, Text, Integer, Float, Boolean, Date, DateTime,ForeignKey, UniqueConstraint, func, text
+from sqlalchemy import String, Text, Integer, Float, Boolean, Date, DateTime,ForeignKey, UniqueConstraint, CheckConstraint, func, text
 from sqlalchemy.dialects.postgresql import ARRAY
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from db import Base
@@ -77,6 +77,25 @@ class Match(Base):
     notified_at:Mapped[datetime|None]=mapped_column(DateTime) 
     student:Mapped["Students"]=relationship(back_populates="matches")
     job:Mapped["Job"]=relationship(back_populates="matches")
+
+# Application tracker statuses, in the order a student moves through them. Mirrored in schemas.py.
+APPLICATION_STATUSES=("saved","applied","interview","offer","rejected")
+
+class Application(Base):
+    """A job a student tracks. It always starts as 'saved'; only the student moves it on."""
+    __tablename__="applications"
+
+    __table_args__=(UniqueConstraint("student_id","job_id",name="uq_application_student_job"),
+                    CheckConstraint("status IN ('saved','applied','interview','offer','rejected')",name="ck_application_status"))
+    id:Mapped[int]=mapped_column(primary_key=True)
+    student_id:Mapped[int]=mapped_column(ForeignKey("students.id"),index=True)
+    job_id:Mapped[int]=mapped_column(ForeignKey("job_postings.id"),index=True)
+    status:Mapped[str]=mapped_column(String(20),nullable=False,default="saved",server_default=text("'saved'"))
+    saved_on:Mapped[date]=mapped_column(Date,nullable=False,server_default=func.current_date())
+    applied_on:Mapped[date|None]=mapped_column(Date)
+    created_at:Mapped[datetime]=mapped_column(DateTime,server_default=func.now())
+    updated_at:Mapped[datetime]=mapped_column(DateTime,server_default=func.now(),onupdate=func.now())
+    job:Mapped["Job"]=relationship()
 
 class ScrapedRuns(Base):
     __tablename__="scrapes"

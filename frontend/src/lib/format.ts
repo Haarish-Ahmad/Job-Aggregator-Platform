@@ -1,4 +1,4 @@
-import type { Job } from "./types";
+import type { ApplicationStatus, Job } from "./types";
 
 const DAY = 86_400_000;
 
@@ -113,4 +113,18 @@ export function companyHue(name: string | null): number {
 
 export function parseList(text: string): string[] {
   return [...new Set(text.split(",").map((s) => s.trim().toLowerCase()).filter(Boolean))];
+}
+
+export const STATUS_LABELS: Record<ApplicationStatus, string> = {
+  saved: "Saved",
+  applied: "Applied",
+  interview: "Interview",
+  offer: "Offer received",
+  rejected: "Rejected",
+};
+
+/** "2026-10-12" -> "12 Oct 2026", as a calendar date (no time-zone shift). */
+export function shortDate(iso: string): string {
+  const [y, m, d] = iso.split("-").map(Number);
+  return new Date(y, m - 1, d).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
 }

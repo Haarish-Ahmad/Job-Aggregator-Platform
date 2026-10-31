@@ -3,6 +3,7 @@ import { Layout } from "./components/Layout";
 import { Loading } from "./components/States";
 import { useAuth } from "./lib/auth";
 import { AnalyticsPage } from "./pages/Analytics";
+import { ApplicationsPage } from "./pages/Applications";
 import { LoginPage, RegisterPage } from "./pages/Auth";
 import { HomePage } from "./pages/Home";
 import { JobDetailPage } from "./pages/JobDetail";
@@ -28,6 +29,7 @@ export function App() {
         <Route path="jobs" element={<ListingsPage />} />
         <Route path="jobs/:id" element={<JobDetailPage />} />
         <Route path="matches" element={<MatchesPage />} />
+        <Route path="applications" element={<ApplicationsPage />} />
         <Route path="profile" element={<ProfilePage />} />
         <Route path="analytics/*" element={<AnalyticsPage />} />
       </Route>

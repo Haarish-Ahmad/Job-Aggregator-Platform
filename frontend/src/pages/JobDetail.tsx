@@ -1,12 +1,60 @@
+import { useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { Icon } from "../components/Icon";
 import { Cover, FreshnessBadge, SkillChips } from "../components/JobCard";
 import { ErrorState, Loading } from "../components/States";
-import { api } from "../lib/api";
+import { StatusSelect } from "../components/StatusSelect";
+import { ApiError, api } from "../lib/api";
 import { deadline, freshness, jobTypeLabel, safeUrl, sourceLabel, whereLabel } from "../lib/format";
+import type { Application, ApplicationStatus } from "../lib/types";
 import { useAsync } from "../lib/useAsync";
 
 export { safeUrl };
+
+/** Save the job to the tracker (always as "Saved"), or change its status once saved. Opening the apply link changes nothing here. */
+function TrackJob({ jobId }: { jobId: number }) {
+  // Like the match score, a nice-to-have: if the list fails to load, the Save button still works (duplicates get a 409).
+  const list = useAsync(() => api.applications().catch(() => null), []);
+  const [mine, setMine] = useState<Application>();
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string>();
+  const current = mine ?? list.data?.find((a) => a.job.id === jobId);
+
+  async function run(action: () => Promise<void>) {
+    setBusy(true);
+    setError(undefined);
+    try {
+      await action();
+    } catch (err) {
+      if (err instanceof ApiError && err.status === 409) list.reload(); // already saved (e.g. in another tab): show it
+      else setError((err as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  }
+  const save = () => run(async () => setMine(await api.saveJob(jobId)));
+  const setStatus = (id: number, status: ApplicationStatus) => run(async () => setMine(await api.updateApplication(id, { status })));
+
+  if (list.loading && !list.data) return null;
+  return (
+    <div className="track">
+      {current ? (
+        <>
+          <div className="track-row">
+            <span>Your status</span>
+            <StatusSelect value={current.status} disabled={busy} label="Your application status" onChange={(s) => setStatus(current.id, s)} />
+          </div>
+          <Link to="/applications" className="track-link">View all applications</Link>
+        </>
+      ) : (
+        <button type="button" className="btn block" disabled={busy} onClick={save}>
+          <Icon name="bookmark" size={16} /> {busy ? "Saving…" : "Save job"}
+        </button>
+      )}
+      {error && <p className="form-error" role="alert">{error}</p>}
+    </div>
+  );
+}
 
 export function JobDetailPage() {
   const id = Number(useParams().id);
@@ -102,6 +150,7 @@ export function JobDetailPage() {
           ) : (
             <span className="muted">No valid apply link was provided.</span>
           )}
+          <TrackJob key={j.id} jobId={j.id} />
           <p className="fine">You apply on {sourceLabel(j.source)}. Always confirm the details there.</p>
         </aside>
       </div>

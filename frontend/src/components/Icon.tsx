@@ -21,6 +21,7 @@ const PATHS = {
   left: "M15 18l-6-6 6-6",
   right: "M9 18l6-6-6-6",
   arrow: "M5 12h14M13 6l6 6-6 6",
+  bookmark: "M6 3h12v18l-6-4-6 4z",
   logout: "M9 4H5v16h4M16 16l4-4-4-4M20 12H10",
   sparkle: "M12 3l2 6 6 2-6 2-2 6-2-6-6-2 6-2z",
 } as const;

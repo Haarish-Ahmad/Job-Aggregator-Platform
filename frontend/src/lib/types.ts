@@ -116,3 +116,18 @@ export interface RegisterInput {
   skills: string[];
 }
 export type ProfileUpdate = Partial<Pick<Student, "branch" | "cgpa" | "grad_year" | "skills" | "resume_link" | "alerts_enabled">>;
+
+// Application tracker. Mirrors backend models.APPLICATION_STATUSES; a new application is always "saved".
+export const APPLICATION_STATUSES = ["saved", "applied", "interview", "offer", "rejected"] as const;
+export type ApplicationStatus = (typeof APPLICATION_STATUSES)[number];
+
+export interface Application {
+  id: number;
+  status: ApplicationStatus;
+  saved_on: string;
+  applied_on: string | null;
+  updated_at: string | null;
+  job: Job;
+}
+
+export type ApplicationUpdate = Partial<Pick<Application, "status" | "applied_on">>;
