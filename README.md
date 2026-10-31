@@ -118,6 +118,11 @@ docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
 Behind HTTPS set `PUBLIC_URL=https://…` and `SESSION_COOKIE_SECURE=true`. Replace Mailpit with a real SMTP server through the
 `SMTP_*` variables.
 
+### Automatic deployment to your own server
+
+[`server-setup/`](server-setup/README.md) turns a Linux machine into the server: copy the folder over and run `bash setup.sh`.
+After that, every push to `main` publishes the images and deploys them there, through a GitHub Actions runner on that machine.
+
 ## Development
 
 ```bash
@@ -161,7 +166,8 @@ Mailpit. CI runs the same script.
   builds all four images; then the compose smoke test. No real Firecrawl is ever needed.
 * `.github/workflows/release.yml` (push to `main` and `v*.*.*` tags): builds and pushes `ghcr.io/<owner>/<repo>-<service>` for
   `backend`, `scraper`, `frontend`, `nginx`, tagged `sha-<short>`, `latest` (main) and the semver on tags,
-  with OCI labels linking each package to the repository.
+  with OCI labels linking each package to the repository. On `main` a `deploy` job then runs on your own server (a self-hosted
+  runner) and starts those images, once the `DEPLOY_ENABLED` repository variable is `true`. See `server-setup/README.md`.
 
 ## Configuration reference
 
@@ -240,6 +246,7 @@ infra/       nginx (single entry point)
 monitoring/  Prometheus settings and Grafana data source + dashboards (mounted into the containers, not built)
 tests/integration/   scraper -> backend end-to-end tests
 scripts/     smoke.sh (whole-stack test), ci_mocks.py
+server-setup/  one-command server setup and the deploy scripts
 docs/        screenshots for this README
 firecrawl/   (git-ignored) optional local checkout of Firecrawl
 ```

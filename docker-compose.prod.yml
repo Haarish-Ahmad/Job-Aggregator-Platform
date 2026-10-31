@@ -1,10 +1,13 @@
-# Run the prebuilt images published by the release workflow instead of building locally:
+# Run the prebuilt images published by the release workflow instead of building locally. On the server this happens
+# automatically on every push to main (server-setup/deploy.sh, with the commit's own IMAGE_TAG). By hand:
 #
 #   docker compose -f docker-compose.yml -f docker-compose.prod.yml pull
 #   docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
 #
 # Choose the version with IMAGE_TAG in .env (latest, sha-<short>, or a release such as 1.2.3). If the packages are
 # private, run `docker login ghcr.io` first. Change IMAGE_PREFIX if the repository is hosted under another owner.
+# Prometheus, Grafana, Postgres and Mailpit use official images, so they need no entry here. monitoring/ must be next to
+# this file on the server: their settings are mounted from it.
 services:
   backend: &prebuilt
     image: ${IMAGE_PREFIX:-ghcr.io/haarish-ahmad/job-aggregator-platform}-backend:${IMAGE_TAG:-latest}

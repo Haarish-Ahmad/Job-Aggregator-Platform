@@ -127,7 +127,7 @@ jobs:
           docker compose -f docker-compose.yml -f docker-compose.prod.yml --env-file "$RUNNER_TEMP/ci.env" config -q
           if docker compose --env-file /dev/null config -q 2>/dev/null; then echo "compose must require the secrets"; exit 1; fi
       - name: Shell scripts pass shellcheck
-        run: shellcheck scripts/smoke.sh backend/docker-entrypoint.sh frontend/docker-entrypoint.sh
+        run: shellcheck scripts/smoke.sh backend/docker-entrypoint.sh frontend/docker-entrypoint.sh server-setup/*.sh
       - name: No Windows line endings in files that run in Linux containers
         run: |
           if git grep -Il $'\r' -- '*.sh' '*Dockerfile' '*.yml' '*.yaml' '*.conf'; then echo "CRLF found (see .gitattributes)"; exit 1; fi
