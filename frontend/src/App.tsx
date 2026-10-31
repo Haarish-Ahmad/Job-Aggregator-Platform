@@ -4,6 +4,7 @@ import { Loading } from "./components/States";
 import { useAuth } from "./lib/auth";
 import { AnalyticsPage } from "./pages/Analytics";
 import { LoginPage, RegisterPage } from "./pages/Auth";
+import { HomePage } from "./pages/Home";
 import { JobDetailPage } from "./pages/JobDetail";
 import { ListingsPage } from "./pages/Listings";
 import { MatchesPage } from "./pages/Matches";
@@ -22,8 +23,9 @@ export function App() {
     <Routes>
       <Route path="/login" element={<LoginPage />} />
       <Route path="/register" element={<RegisterPage />} />
+      <Route index element={<HomePage />} />
       <Route element={<RequireAuth />}>
-        <Route index element={<ListingsPage />} />
+        <Route path="jobs" element={<ListingsPage />} />
         <Route path="jobs/:id" element={<JobDetailPage />} />
         <Route path="matches" element={<MatchesPage />} />
         <Route path="profile" element={<ProfilePage />} />

@@ -6,6 +6,7 @@ const PATHS = {
   cap: "M2 9l10-5 10 5-10 5zM6 11v5c3 2 9 2 12 0v-5",
   clock: "M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18zM12 7v5l3 2",
   file: "M6 3h9l4 4v14H6zM14 3v5h5",
+  upload: "M12 16V4M7 9l5-5 5 5M4 16v4h16v-4",
   layers: "M12 3l9 5-9 5-9-5zM3 13l9 5 9-5",
   pin: "M12 21s-7-6-7-11a7 7 0 0 1 14 0c0 5-7 11-7 11zM12 8a2 2 0 1 0 0 4 2 2 0 0 0 0-4z",
   globe: "M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18zM3 12h18M12 3c3 3 3 15 0 18M12 3c-3 3-3 15 0 18",
@@ -19,6 +20,7 @@ const PATHS = {
   external: "M14 4h6v6M20 4l-9 9M18 14v5H5V6h5",
   left: "M15 18l-6-6 6-6",
   right: "M9 18l6-6-6-6",
+  arrow: "M5 12h14M13 6l6 6-6 6",
   logout: "M9 4H5v16h4M16 16l4-4-4-4M20 12H10",
   sparkle: "M12 3l2 6 6 2-6 2-2 6-2-6-6-2 6-2z",
 } as const;

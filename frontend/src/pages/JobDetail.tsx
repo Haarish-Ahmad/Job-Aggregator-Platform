@@ -24,7 +24,7 @@ export function JobDetailPage() {
   const f = freshness(j);
   return (
     <article className="detail">
-      <Link to="/" className="back">
+      <Link to="/jobs" className="back">
         <Icon name="left" size={16} /> All jobs
       </Link>
       <header className="detail-head">

@@ -4,7 +4,7 @@ import { initials } from "../lib/format";
 import { Icon, type IconName } from "./Icon";
 
 const TABS: { to: string; label: string; icon: IconName; end?: boolean }[] = [
-  { to: "/", label: "Jobs", icon: "briefcase", end: true },
+  { to: "/jobs", label: "Jobs", icon: "briefcase" },
   { to: "/matches", label: "My matches", icon: "target" },
   { to: "/analytics", label: "Analytics", icon: "chart" },
 ];
