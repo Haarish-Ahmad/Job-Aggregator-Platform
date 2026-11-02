@@ -15,6 +15,7 @@ from ingest import deactivate_stale,ingest,make_hash  # noqa: F401  (make_hash r
 from metrics import MetricsMiddleware,metrics_response,INGEST_RECORDS
 import alerts
 import analytics
+import applications
 
 settings=get_settings()
 app=FastAPI(title="Job Aggregator Platform",root_path=settings.root_path)
@@ -27,6 +28,7 @@ app.add_middleware(MetricsMiddleware)
 
 app.include_router(alerts.router)
 app.include_router(analytics.router)
+app.include_router(applications.router)
 
 @app.get("/health")
 def check_health(db:Session=Depends(get_db)):
