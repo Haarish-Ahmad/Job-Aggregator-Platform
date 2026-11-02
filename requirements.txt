@@ -1,0 +1,13 @@
+fastapi
+uvicorn[standard]
+sqlalchemy
+psycopg2-binary
+alembic
+pydantic-settings
+email-validator
+numpy
+prometheus-client
+pypdf
+python-multipart
+sentence-transformers
+werkzeug
