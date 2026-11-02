@@ -1,0 +1,10 @@
+# Tells Grafana to load every dashboard file found in this folder (mounted from monitoring/grafana/dashboards).
+apiVersion: 1
+providers:
+  - name: job-aggregator
+    type: file
+    disableDeletion: true        # the files are the source of truth; deleting in the UI would not stick
+    allowUiUpdates: false
+    updateIntervalSeconds: 10    # edit a dashboard file and it reloads without a restart
+    options:
+      path: /etc/grafana/dashboards

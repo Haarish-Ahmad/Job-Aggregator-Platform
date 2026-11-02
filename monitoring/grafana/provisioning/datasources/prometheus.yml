@@ -1,0 +1,10 @@
+# Tells Grafana where its data comes from, so nobody has to click it together.
+apiVersion: 1
+datasources:
+  - name: Prometheus
+    uid: prometheus              # the dashboards refer to this id
+    type: prometheus
+    access: proxy                # Grafana's server fetches the data; the browser never talks to Prometheus
+    url: http://prometheus:9090
+    isDefault: true
+    editable: false
