@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from "react";
 import { Icon } from "../components/Icon";
+import { ResumeUpload } from "../components/ResumeUpload";
 import { Loading } from "../components/States";
 import { useAuth } from "../lib/auth";
 import { initials, parseList } from "../lib/format";
@@ -18,8 +19,9 @@ function ProfileForm({ user }: { user: Student }) {
     cgpa: user?.cgpa?.toString() ?? "",
     grad_year: user?.grad_year?.toString() ?? "",
     skills: (user?.skills ?? []).join(", "),
-    resume_link: user?.resume_link ?? "",
   });
+  // Frontend only for now: never sent with the profile, gone on refresh.
+  const [resume, setResume] = useState<File | null>(null);
   const [status, setStatus] = useState<{ kind: "ok" | "error"; text: string }>();
   const [busy, setBusy] = useState(false);
   const [alertBusy, setAlertBusy] = useState(false);
@@ -35,7 +37,6 @@ function ProfileForm({ user }: { user: Student }) {
         cgpa: f.cgpa === "" ? null : Number(f.cgpa),
         grad_year: Number(f.grad_year),
         skills: parseList(f.skills),
-        resume_link: f.resume_link.trim() || null,
       });
       setStatus({ kind: "ok", text: "Profile saved." });
     } catch (err) {
@@ -85,7 +86,7 @@ function ProfileForm({ user }: { user: Student }) {
               <label className="field">Graduation year<input type="number" min="2000" max="2100" value={f.grad_year} onChange={set("grad_year")} required /></label>
             </div>
             <label className="field">Skills <small>(comma separated)</small><input value={f.skills} onChange={set("skills")} placeholder="python, sql, react" /></label>
-            <label className="field">Resume link<input type="url" value={f.resume_link} onChange={set("resume_link")} placeholder="https://…" /></label>
+            <ResumeUpload file={resume} onChange={setResume} />
             <div>
               <button className="btn primary" disabled={busy}>{busy ? "Saving…" : "Save profile"}</button>
             </div>

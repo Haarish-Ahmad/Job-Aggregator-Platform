@@ -1,4 +1,6 @@
 import type {
+  Application,
+  ApplicationUpdate,
   CompaniesReport,
   CurriculumReport,
   Job,
@@ -102,6 +104,15 @@ export const api = {
   job: (id: number) => getJson<Job>(`/jobs/${id}`),
   matches: (opts: { min_score?: number; include_unmatched?: boolean } = {}) =>
     getJson<MatchedJob[]>(`/me/matches${qs({ min_score: opts.min_score || undefined, include_unmatched: opts.include_unmatched })}`),
+
+  applications: () => getJson<Application[]>("/me/applications"),
+  /** Always created as "saved"; the student moves it on by hand. 409 if the job is already tracked. */
+  saveJob: async (jobId: number) => (await request("/me/applications", { method: "POST", json: { job_id: jobId } })).json() as Promise<Application>,
+  updateApplication: async (id: number, update: ApplicationUpdate) =>
+    (await request(`/me/applications/${id}`, { method: "PATCH", json: update })).json() as Promise<Application>,
+  removeApplication: async (id: number) => {
+    await request(`/me/applications/${id}`, { method: "DELETE" });
+  },
 
   skills: (opts: { scope?: Scope; limit?: number; weeks?: number } = {}) => getJson<SkillsReport>(`/analytics/skills${qs(opts)}`),
   skillGap: (opts: { scope?: Scope; limit?: number; weeks?: number } = {}) => getJson<SkillGapReport>(`/analytics/skill-gap${qs(opts)}`),

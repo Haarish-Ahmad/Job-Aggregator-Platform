@@ -13,7 +13,7 @@ vi.mock("../lib/api", async (orig) => {
   const real = await orig<typeof import("../lib/api")>();
   return {
     ...real,
-    api: Object.fromEntries(["me", "login", "register", "logout", "updateProfile", "jobs", "job", "matches", "skills", "skillGap", "companies", "curriculum"].map((k) => [k, vi.fn()])),
+    api: Object.fromEntries(["me", "login", "register", "logout", "updateProfile", "jobs", "job", "matches", "skills", "skillGap", "companies", "curriculum", "applications", "saveJob", "updateApplication", "removeApplication"].map((k) => [k, vi.fn()])),
   };
 });
 const m = vi.mocked(api);
@@ -25,6 +25,7 @@ beforeEach(() => {
   Object.values(m).forEach((fn) => (fn as ReturnType<typeof vi.fn>).mockReset());
   m.jobs.mockResolvedValue({ jobs: [], total: 0 });
   m.matches.mockResolvedValue([]);
+  m.applications.mockResolvedValue([]);
   signedIn(); // most tests are signed in; the auth tests call signedOut() themselves
 });
 
@@ -36,7 +37,7 @@ describe("auth guard", () => {
   });
   it("shows the app to signed-in users, with their name in the header", async () => {
     signedIn();
-    renderAt(<App />, "/");
+    renderAt(<App />, "/jobs");
     expect(await screen.findByRole("heading", { name: "Jobs & internships" })).toBeInTheDocument();
     expect(screen.getByText("Asha")).toBeInTheDocument();
   });
@@ -62,7 +63,7 @@ describe("auth guard", () => {
   it("signs out", async () => {
     signedIn();
     m.logout.mockResolvedValue();
-    renderAt(<App />, "/");
+    renderAt(<App />, "/jobs");
     await userEvent.click(await screen.findByRole("button", { name: "Sign out" }));
     expect(await screen.findByRole("heading", { name: "Sign in" })).toBeInTheDocument();
   });

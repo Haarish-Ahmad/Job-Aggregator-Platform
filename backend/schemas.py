@@ -134,3 +134,22 @@ class JobOut(BaseModel):
 class MatchOut(BaseModel):
     score:float
     job:JobOut
+# Application tracker. Mirrors models.APPLICATION_STATUSES.
+ApplicationStatus=Literal["saved","applied","interview","offer","rejected"]
+
+class ApplicationCreate(BaseModel):
+    # Only the job: a new application is always 'saved'. Any other field sent (e.g. a status) is ignored.
+    job_id:int
+
+class ApplicationUpdate(BaseModel):
+    status:ApplicationStatus|None=None
+    applied_on:date|None=None
+
+class ApplicationOut(BaseModel):
+    id:int
+    status:ApplicationStatus
+    saved_on:date
+    applied_on:date|None
+    updated_at:datetime|None=None
+    job:JobOut
+    model_config=ConfigDict(from_attributes=True)
