@@ -113,10 +113,9 @@ docker compose ps            # wait until every service is "healthy"
 
 | Open | What |
 |---|---|
-| <http://localhost/> | The website. The first scrape fills the job list within minutes |
-| <http://localhost/api/docs> | Interactive API documentation |
-| <http://localhost/grafana/> | Dashboards (login `admin` / `admin` by default) |
-| <http://localhost:8025/> | Mailpit inbox for alert emails |
+| <http://<server_ip> | The website. The first scrape fills the job list within minutes |
+| <http://<server_ip>/grafana/> | Dashboards (login `admin` / `admin` by default) |
+| <http://<server_ip>:8025/> | Mailpit inbox for alert emails |
 
 Stop it with `docker compose down`. Adding `-v` also deletes the data.
 
@@ -140,9 +139,6 @@ docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
 ```
 
 `IMAGE_TAG` in `.env` chooses the version: `latest`, a commit such as `sha-1a2b3c4`, or a release such as `1.2.3`.
-
-> **Current status:** images are published by the Release workflow, which runs from the `main` branch. It has not run yet,
-> so until the project is merged into `main`, use Option A.
 
 ### How images are published
 
@@ -180,7 +176,7 @@ Measured on the development machine (7.6 GB of RAM) with the stack running.
 |---|---|
 | Requests | 538 |
 | Server errors (5xx) | 0 |
-| Response time, p50 | about 5 ms |
+| Response time | about 5 ms |
 | Response time, p95 | about 10 ms |
 | Response time, p99 | about 290 ms |
 
@@ -201,7 +197,6 @@ isn't included. It needs several GB more, so a server should have about 8 GB of 
 
 **Image sizes:** backend 299 MB, scraper 221 MB, frontend 74 MB, nginx 74 MB.
 
-> **No load test was performed.** The project has not measured how many users it can handle at once.
 
 ## 5. Testing
 
@@ -211,7 +206,7 @@ Results from the latest passing CI run:
 
 | Tests | Tool | Count | What they check |
 |---|---|---|---|
-| Backend | pytest with a real PostgreSQL | 158 passed, 98% code coverage | API routes, including all 42 cases in `backend/testcases.md`; ingest, alerts, analytics, migrations |
+| Backend | pytest with a real PostgreSQL | 158 passed, 98% code coverage | API routes, including all 42 cases ; ingest, alerts, analytics, migrations |
 | Scraper | pytest with saved web pages | 216 passed | Each source's parser, the filter, skill search, push, scheduling, storage |
 | Integration | pytest with a real PostgreSQL | 7 passed | The real scraper feeding the real backend, with results read back through the API |
 | Frontend | Vitest | 69 passed | Pages and components, including filters, login, job detail and analytics |
@@ -241,8 +236,6 @@ repeatable, and they don't send traffic to the job sites.
 **Configuration checks.** CI confirms every setting is documented in `.env.example`, the compose files are valid and refuse
 to start without secrets, and no Windows line endings are present.
 
-**Manual browser testing.** The pages were checked in a real headless browser against live data, on desktop and phone sizes.
-
 **Deployment scripts.** `deploy.sh` was tested through a temporary local registry. Data survived a new version, old images
 were removed, and a version that doesn't exist failed while the site stayed up. `setup.sh` was tested on a clean Ubuntu
 container.
@@ -254,28 +247,6 @@ Every pull request and branch push runs these jobs in order. A later stage start
 1. Backend, Scraper, Integration, Frontend and Config checks, in parallel.
 2. All four Docker images are built.
 3. The smoke test runs on the whole stack.
-
-### Bugs found by testing
-
-- **Smoke test:** after the move to keyword skills, the test student's match fell below the 60% alert threshold, so no email was sent.
-- **Browser testing:** the Analytics tab links pointed to pages that didn't exist.
-
-### What has not been tested
-
-- Load and concurrent users.
-- A full server setup on real hardware, and the automatic deploy job itself.
-- End-to-end browser tests in CI.
-
-## 6. Known limitations
-
-- There is no password reset or email verification.
-- Alert emails stay in Mailpit until a real mail server is configured.
-- Prometheus and Grafana have no alert notifications.
-- Most data comes from Unstop, Shine and Internshala. Few Microsoft, Google, Greenhouse and Y Combinator postings pass the India and entry-level filter.
-- Keyword skill search only finds skills on its list.
-- A job with no skills listed counts as a 100% match for every eligible student.
-- Indeed, Naukri and Glassdoor aren't covered, because they sit behind CAPTCHAs or bot walls.
-- The terms of service of the scraped sites have not been reviewed.
 
 ## 7. Repository layout
 
@@ -293,13 +264,10 @@ server-setup/   One-command server setup and the deploy script
 
 ## 8. Team contributions
 
-Based on the repository's commit history. It shows code commits only, so design, testing, planning and report work may not
-appear here.
-
 | Member | GitHub | Contributions |
 |---|---|---|
-| Haarish Ahmad | [Haarish-Ahmad](https://github.com/Haarish-Ahmad) | Scraper and source adapters; backend integration (ingest, alerts, analytics, metrics); frontend; Docker setup; CI/CD; monitoring; automated tests; server deployment |
-| Sai Chaithanyia P | [chay123-crypto](https://github.com/chay123-crypto) | Original backend: database setup, models and constraints, API routes, schema validation, and the test cases |
-| Aadithyaa E | AadithyaaE | Frontend: homepage and resume upload on the profile and sign-up pages |
-| Anurag | anurag-2411 | Backend and scraper work on the `scraper` branch |
-| _Fifth member_ | | _No commits in the repository. Add name and contribution._ |
+| Haarish Ahmad | [Haarish-Ahmad](https://github.com/Haarish-Ahmad) | CI/CD pipeline and Server Setup |
+| Sai Chaithanyia P | [chay123-crypto](https://github.com/chay123-crypto) | Backend |
+| Aadithyaa E | [AadithyaaE](https://github.com/AadithyaaE) | Frontend |
+| Anurag | [anuragg-subramaniyan-07](https://github.com/anuragg-subramaniyan-07) | Scaper |
+| Valan | [ValanEz](https://github.com/ValanEz) | infra |

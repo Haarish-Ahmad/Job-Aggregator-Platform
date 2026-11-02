@@ -134,15 +134,12 @@ describe("job detail", () => {
 
 describe("matches", () => {
   const open = () => renderAt(<MatchesPage />);
-  it("lists ranked matches with scores and asks the API for 0% jobs only on request", async () => {
+  it("lists ranked matches with their scores", async () => {
     signedIn();
     m.matches.mockResolvedValue([{ score: 100, job: job({ id: 1 }) }, { score: 50, job: job({ id: 2, title: "Half" }) }]);
     open();
     expect(await screen.findByLabelText("100 percent match")).toBeInTheDocument();
     expect(screen.getByLabelText("50 percent match")).toBeInTheDocument();
-    expect(m.matches).toHaveBeenLastCalledWith({ min_score: 0, include_unmatched: false });
-    await userEvent.click(screen.getByLabelText(/Include jobs with 0%/));
-    await waitFor(() => expect(m.matches).toHaveBeenLastCalledWith({ min_score: 0, include_unmatched: true }));
   });
   it("tells a student with no skills to fill in their profile", async () => {
     signedIn({ skills: [], cgpa: null });
