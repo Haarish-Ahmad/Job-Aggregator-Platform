@@ -3,6 +3,7 @@
 Needs a Postgres at TEST_DATABASE_URL (default localhost:5432/jobs_test) and both packages installed:
     pip install -r requirements-dev.txt && pip install -e "scraper[dev]"
 """
+import hashlib
 import os
 import sys
 from pathlib import Path
@@ -23,6 +24,7 @@ from fastapi.testclient import TestClient  # noqa: E402
 from sqlalchemy import text  # noqa: E402
 
 from db import engine  # noqa: E402
+import matching  # noqa: E402
 from main import app  # noqa: E402
 
 
@@ -40,6 +42,33 @@ def schema():
 def clean_tables():
     with engine.begin() as conn:
         conn.execute(text("TRUNCATE matches, job_postings, company, students, scrapes RESTART IDENTITY CASCADE"))
+
+
+@pytest.fixture(autouse=True)
+def deterministic_sentence_embeddings(monkeypatch):
+    class TestModel:
+        def encode(self, texts, normalize_embeddings=True):
+            vectors = []
+            for value in texts:
+                skills_text = value.split("Skills:", 1)[1].split(".", 1)[0]
+                vector = [0.0] * 1024
+                for skill in skills_text.split(","):
+                    skill = skill.strip().lower()
+                    if skill:
+                        index = int.from_bytes(hashlib.sha256(skill.encode()).digest()[:4], "big") % len(vector)
+                        vector[index] = 1.0
+                norm = sum(component * component for component in vector) ** 0.5
+                if normalize_embeddings and norm:
+                    vector = [component / norm for component in vector]
+                vectors.append(vector)
+
+            class EncodedVectors(list):
+                def tolist(self):
+                    return self
+
+            return EncodedVectors(vectors)
+
+    monkeypatch.setattr(matching, "get_model", TestModel)
 
 
 @pytest.fixture
