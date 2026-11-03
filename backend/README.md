@@ -62,7 +62,7 @@ python cli.py send-alerts        # send pending job-match emails now
 | GET | /me/resume | login | Download the signed-in student's stored resume |
 | GET | /me/stats | login | Personal match count, recent recommendations and skill gaps |
 | GET | /admin/analytics | admin | Platform-wide hiring summary and job lists |
-| GET | /me/matches | login | Eligible jobs ranked by skill match; `min_score`; 0% matches hidden unless `include_unmatched=true` |
+| GET | /me/matches | login | Eligible jobs ranked by semantic match; `min_score`; 0% matches hidden unless `include_unmatched=true` |
 | POST | /company | login | Create a company |
 | GET | /companies | login | List companies |
 | GET | /jobs | login | List jobs. Filters `q` (title or company), `company_id`, `company_group`, `job_type`, `location`, `skill`, `grad_year`, `source`, `scope`, `active_only`, `hide_expired`; `sort`; `limit` (1+, capped at 100) and `offset` (0+); total in the `X-Total-Count` header |
@@ -100,8 +100,11 @@ A job is shown to a student only if all of these hold:
 - The student's branch is in `allowed_branches` (when set).
 - The student's `grad_year` is in `allowed_grads` (when set).
 
-The score is the percentage of the job's required skills that the student has. A job with no required skills scores 100.
-A job that scores 0 is not returned by `/me/matches` unless `include_unmatched=true`. This is rule-based matching, not machine learning.
+Eligible jobs are ranked with the `all-MiniLM-L6-v2` SentenceTransformer model using normalized embeddings of the student's
+skills and branch and each job's title, required skills and description. Cosine similarity from 0.15 to 0.60 is mapped to a
+0-100 score, with lower similarities scoring 0 and higher similarities capped at 100.
+Embeddings for existing rows are generated lazily when a student requests matches; new or updated profiles and jobs are
+embedded as they are saved. A score of 0 is not returned by `/me/matches` unless `include_unmatched=true`.
 
 ## Tests
 

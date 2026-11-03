@@ -90,7 +90,7 @@ export function JobCard({ job, score, now }: { job: Job; score?: number; now?: D
       <footer className="job-bottom">
         <div className="job-status">
           {score !== undefined && (
-            <span className="score" title="Share of the required skills you have" aria-label={`${Math.round(score)} percent match`}>
+            <span className="score" title="Semantic similarity between your profile and this job" aria-label={`${Math.round(score)} percent match`}>
               {Math.round(score)}% match
             </span>
           )}

@@ -675,12 +675,12 @@ Query parameters go in the Params tab or straight into the URL.
 
 Asha now has cgpa 9.0, branch CSE, graduating 2026, skills python, sql, docker, react.
 
-#### TC-34: Asha's matches
+#### TC-34: Asha's semantic matches
 
 - **Request:** `GET http://localhost:8000/me/matches`
 - **Before:** Logged in as Asha
 - **Expected status:** 200
-- **Expected result:** Backend Intern 100.0, Open Role 100.0, Half Match 50.0. Excluded: High CGPA Role (min 9.5), Expired Role (deadline passed), ECE Only (branch). Sorted by score, highest first.
+- **Expected result:** Backend Intern and Half Match are returned with positive semantic scores, sorted highest first. Open Role scores 0 with the deterministic test encoder and is hidden by default. Excluded: High CGPA Role (min 9.5), Expired Role (deadline passed), ECE Only (branch). Production scores depend on the SentenceTransformer model.
 
 #### TC-35: Minimum score filter
 
@@ -694,12 +694,12 @@ Asha now has cgpa 9.0, branch CSE, graduating 2026, skills python, sql, docker, 
 - **Expected status:** 200
 - **Expected result:** Call twice, then run SELECT * FROM matches; There must be no duplicate student_id, job_id rows.
 
-#### TC-37: Ravi's matches
+#### TC-37: Ravi's semantic matches
 
 - **Request:** `GET http://localhost:8000/me/matches`
 - **Before:** Log in as Ravi first
 - **Expected status:** 200
-- **Expected result:** Only ECE Only (100.0) and Open Role (100.0). Backend Intern is excluded by branch and cgpa.
+- **Expected result:** ECE Only is returned with a positive semantic score. Open Role scores 0 with the deterministic test encoder and is hidden by default. Backend Intern is excluded by branch and cgpa.
 
 #### TC-38: Ravi cannot ingest
 

@@ -14,7 +14,7 @@ from models import Companies,Students,Job
 from werkzeug.security import generate_password_hash,check_password_hash
 from schemas import CompanyDetails, CompanyOut, StudentDetails, StudentOut, LoginDetails, StudentUpdate, JobOut, ingestionResult, bulkjobs, MatchOut
 from fastapi.middleware.cors import CORSMiddleware
-from matching import compute_matches, save_matches
+from matching import compute_matches, embed, save_matches, student_text
 from config import get_settings
 from deps import get_current_user,ingest_auth
 from ingest import deactivate_stale,ingest,make_hash  # noqa: F401  (make_hash re-exported: it used to live here)
@@ -73,6 +73,7 @@ def student_register(data:StudentDetails,db:Session=Depends(get_db)):
         raise HTTPException(status_code=409,detail="Student Exists")
     password_hash=generate_password_hash(data.password)
     student=Students(**data.model_dump(exclude={"password"}),password_hash=password_hash)
+    student.embedding=embed([student_text(student.skills,student.branch)])[0]
     db.add(student)
     db.commit()
     db.refresh(student)
@@ -97,8 +98,11 @@ def me(user:Students=Depends(get_current_user)):
 
 @app.patch("/me/update",response_model=StudentOut)
 def update_profile(data:StudentUpdate,user:Students=Depends(get_current_user),db:Session=Depends(get_db)):
-    for field,val in data.model_dump(exclude_unset=True).items():
+    changes=data.model_dump(exclude_unset=True)
+    for field,val in changes.items():
         setattr(user,field,val)
+    if "skills" in changes or "branch" in changes:
+        user.embedding=embed([student_text(user.skills,user.branch)])[0]
     db.commit()
     db.refresh(user)
     return user

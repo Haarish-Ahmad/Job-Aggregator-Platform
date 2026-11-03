@@ -1,9 +1,30 @@
+from functools import lru_cache
 from datetime import date
 
+import numpy as np
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from models import Job, Match, Students
+
+
+@lru_cache(maxsize=1)
+def get_model():
+    from sentence_transformers import SentenceTransformer
+
+    return SentenceTransformer("all-MiniLM-L6-v2")
+
+
+def embed(texts: list[str]) -> list[list[float]]:
+    return get_model().encode(texts, normalize_embeddings=True).tolist()
+
+
+def job_text(title: str, skills: list[str] | None, description: str | None) -> str:
+    return f"{title}. Skills: {', '.join(skills or [])}. {(description or '')[:500]}"
+
+
+def student_text(skills: list[str] | None, branch: str | None) -> str:
+    return f"Skills: {', '.join(skills or [])}. Branch: {branch or ''}."
 
 
 def is_eligible(student: Students, job: Job) -> bool:
@@ -19,17 +40,35 @@ def is_eligible(student: Students, job: Job) -> bool:
     return True
 
 
-def skill_score(student: Students, job: Job) -> float:
-    required = {skill.lower() for skill in job.necessary_skills}
-    if not required:
-        return 100.0
-    have = {skill.lower() for skill in student.skills}
-    return round(len(required & have) / len(required) * 100, 1)
+def similarity_score(student_vec: list[float] | None, job_vec: list[float] | None) -> float | None:
+    if student_vec is None or job_vec is None:
+        return None
+    score = float(np.dot(student_vec, job_vec))
+    return max(0.0, min(100.0, (score - 0.15) / (0.6 - 0.15) * 100))
 
 
 def compute_matches(student: Students, db: Session) -> list[tuple[Job, float]]:
     jobs = db.scalars(select(Job).where(Job.is_active.is_(True))).all()
-    results = [(job, skill_score(student, job)) for job in jobs if is_eligible(student, job)]
+    eligible_jobs = [job for job in jobs if is_eligible(student, job)]
+    if not eligible_jobs:
+        return []
+
+    if student.embedding is None:
+        student.embedding = embed([student_text(student.skills, student.branch)])[0]
+
+    jobs_without_embeddings = [job for job in eligible_jobs if job.embedding is None]
+    if jobs_without_embeddings:
+        vectors = embed(
+            [job_text(job.title, job.necessary_skills, job.description) for job in jobs_without_embeddings]
+        )
+        for job, vector in zip(jobs_without_embeddings, vectors, strict=True):
+            job.embedding = vector
+
+    results = []
+    for job in eligible_jobs:
+        score = similarity_score(student.embedding, job.embedding)
+        if score is not None:
+            results.append((job, score))
     results.sort(key=lambda result: result[1], reverse=True)
     return results
 

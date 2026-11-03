@@ -26,6 +26,7 @@ def student_stats(
     db: Session = Depends(get_db),
 ):
     scored = [(job, score) for job, score in compute_matches(user, db) if score >= 40]
+    db.commit()
     score_by_id = {job.id: score for job, score in scored}
     mine = {skill.strip().lower() for skill in user.skills}
     wanted: dict[str, int] = {}

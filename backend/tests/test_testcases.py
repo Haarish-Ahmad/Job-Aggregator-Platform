@@ -235,7 +235,10 @@ def test_tc33_invalid_id(world):
 def test_tc34_asha_matches(world):
     r = world["asha"].get("/me/matches")
     assert r.status_code == 200
-    assert scores(r) == {"Backend Intern": 100.0, "Open Role": 100.0, "Half Match": 50.0}
+    got = scores(r)
+    assert set(got) == {"Backend Intern", "Half Match"}
+    assert got["Backend Intern"] == 100.0
+    assert got["Half Match"] == pytest.approx(45.2, abs=0.1)
     ranked = [m["score"] for m in r.json()]
     assert ranked == sorted(ranked, reverse=True)
 
@@ -256,12 +259,12 @@ def test_tc37_ravi_matches(world):
     world["ravi"].post("/auth/login", json={"email": RAVI["email"], "password": PASSWORD})
     r = world["ravi"].get("/me/matches")
     assert r.status_code == 200
-    assert scores(r) == {"ECE Only": 100.0, "Open Role": 100.0}  # Half Match (0%) is hidden by default
+    assert scores(r) == {"ECE Only": 100.0}
 
 
 def test_tc37b_include_unmatched_shows_zero_percent(world):
     r = world["ravi"].get("/me/matches", params={"include_unmatched": "true"})
-    assert scores(r) == {"ECE Only": 100.0, "Open Role": 100.0, "Half Match": 0.0}
+    assert scores(r) == {"ECE Only": 100.0, "Half Match": 0.0, "Open Role": 0.0}
 
 
 def test_tc38_ravi_cannot_ingest(world):

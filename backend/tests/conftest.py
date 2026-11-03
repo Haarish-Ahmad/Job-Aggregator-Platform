@@ -5,6 +5,8 @@
 The schema is built by running the real Alembic migrations, so a migration/model mismatch fails the suite.
 """
 import os
+import hashlib
+import math
 import sys
 from pathlib import Path
 
@@ -26,10 +28,38 @@ from fastapi.testclient import TestClient  # noqa: E402
 from sqlalchemy import text  # noqa: E402
 
 from db import engine, session_local  # noqa: E402
+import matching  # noqa: E402
 from main import app  # noqa: E402
 
 PASSWORD = "Test@1234"
 INGEST_HEADERS = {"X-Ingest-Token": "test-ingest-token"}
+
+
+@pytest.fixture(autouse=True)
+def deterministic_sentence_embeddings(monkeypatch):
+    class TestModel:
+        def encode(self, texts, normalize_embeddings=True):
+            vectors = []
+            for value in texts:
+                skills_text = value.split("Skills:", 1)[1].split(".", 1)[0]
+                vector = [0.0] * 1024
+                for skill in skills_text.split(","):
+                    skill = skill.strip().lower()
+                    if skill:
+                        index = int.from_bytes(hashlib.sha256(skill.encode()).digest()[:4], "big") % len(vector)
+                        vector[index] = 1.0
+                norm = math.sqrt(sum(component * component for component in vector))
+                if normalize_embeddings and norm:
+                    vector = [component / norm for component in vector]
+                vectors.append(vector)
+
+            class EncodedVectors(list):
+                def tolist(self):
+                    return self
+
+            return EncodedVectors(vectors)
+
+    monkeypatch.setattr(matching, "get_model", TestModel)
 
 
 def alembic_config() -> Config:
