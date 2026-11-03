@@ -7,9 +7,13 @@ RUN pip install --no-cache-dir --default-timeout=120 --retries=8 --prefix=/insta
 
 FROM python:3.12-slim
 LABEL org.opencontainers.image.title="job-aggregator-backend"
-ENV PYTHONUNBUFFERED=1 PYTHONDONTWRITEBYTECODE=1
+ENV PYTHONUNBUFFERED=1 PYTHONDONTWRITEBYTECODE=1 \
+    HOME=/home/app \
+    HF_HOME=/home/app/.cache/huggingface
 COPY --from=build /install /usr/local
-RUN useradd --system --uid 10001 --home-dir /nonexistent --shell /usr/sbin/nologin app
+RUN useradd --system --uid 10001 --create-home --home-dir /home/app --shell /usr/sbin/nologin app \
+    && mkdir -p "$HF_HOME" \
+    && chown -R app:app /home/app
 WORKDIR /app
 COPY --chown=app:app backend/ /app/
 USER app
