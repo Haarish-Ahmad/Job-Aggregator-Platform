@@ -40,7 +40,7 @@ class Settings(BaseSettings):
     backend_timeout_seconds: float = 60
 
     # `scraper serve`: a long-running process that scrapes on a schedule and exposes /metrics and /health.
-    serve_sources: str = "unstop,shine,internshala"
+    serve_sources: str = "unstop,shine,internshala,amazon"
     serve_limit: int = 300
     scrape_interval_hours: float = 12
     run_on_start: bool = True

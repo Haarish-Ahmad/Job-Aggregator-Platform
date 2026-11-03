@@ -13,6 +13,7 @@ from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from sqlalchemy.orm import Session
 
 from models import Companies, Job
+from matching import embed, job_text
 from schemas import FIELD_LIMITS, RecordResult, Status, ingestionResult, jobsIn
 
 log = logging.getLogger(__name__)
@@ -102,6 +103,7 @@ def _upsert(db: Session, item: jobsIn) -> tuple[Status, int | None]:
             if job.source_content_hash == digest:
                 return "unchanged", job.id
             _apply(job, item, company.id)
+            job.embedding = embed([job_text(job.title, job.necessary_skills, job.description)])[0]
             job.source_content_hash = digest
             job.updated_at = now
             job.scraped_at = now
@@ -110,6 +112,7 @@ def _upsert(db: Session, item: jobsIn) -> tuple[Status, int | None]:
         job = Job(content_hash=identity_hash(item.source, item.external_id), source=item.source,
                   external_id=item.external_id, source_content_hash=digest, last_seen_at=now, updated_at=now)
         _apply(job, item, company.id)
+        job.embedding = embed([job_text(job.title, job.necessary_skills, job.description)])[0]
         db.add(job)
         db.flush()
         return "inserted", job.id
@@ -121,6 +124,7 @@ def _upsert(db: Session, item: jobsIn) -> tuple[Status, int | None]:
         return "unchanged", existing.id
     job = Job(content_hash=digest, last_seen_at=now, updated_at=now)
     _apply(job, item, company.id)
+    job.embedding = embed([job_text(job.title, job.necessary_skills, job.description)])[0]
     db.add(job)
     db.flush()
     return "inserted", job.id

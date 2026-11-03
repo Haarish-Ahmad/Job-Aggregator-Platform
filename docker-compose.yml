@@ -74,6 +74,9 @@ services:
       MAIL_FROM: ${MAIL_FROM:-alerts@jobs.local}
       ALERT_MIN_SCORE: ${ALERT_MIN_SCORE:-60}
       STALE_DAYS: ${STALE_DAYS:-14}
+      RESUME_DIR: /data/resumes
+    volumes:
+      - resume_data:/data/resumes
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=3)"]
       interval: 10s
@@ -93,7 +96,7 @@ services:
       INGEST_TOKEN: ${INGEST_TOKEN}
       FIRECRAWL_API_URL: ${FIRECRAWL_API_URL:-http://host.docker.internal:3002}
       FIRECRAWL_API_KEY: ${FIRECRAWL_API_KEY:-}
-      SERVE_SOURCES: ${SERVE_SOURCES:-unstop,shine,internshala}
+      SERVE_SOURCES: ${SERVE_SOURCES:-unstop,shine,internshala,amazon}
       SERVE_LIMIT: ${SERVE_LIMIT:-300}
       SCRAPE_INTERVAL_HOURS: ${SCRAPE_INTERVAL_HOURS:-12}
       RUN_ON_START: ${RUN_ON_START:-true}
@@ -177,6 +180,7 @@ services:
 
 volumes:
   pgdata:
+  resume_data:
   scraper_data:
   prom_data:
   grafana_state:

@@ -16,10 +16,16 @@ class Students(Base):
     role:Mapped[str]=mapped_column(String(100),default='student')
     cgpa:Mapped[float|None]=mapped_column(Float)
     skills:Mapped[list[str]] = mapped_column(ARRAY(String), default=list)
+    embedding:Mapped[list[float] | None]=mapped_column(ARRAY(Float))
     resume_link:Mapped[str|None]=mapped_column(Text)
+    resume_file:Mapped[str|None]=mapped_column(String(100))
     alerts_enabled:Mapped[bool]=mapped_column(Boolean,default=False,server_default=text('false'))
     created_at:Mapped[datetime]=mapped_column(DateTime,server_default=func.now())
     matches:Mapped[list["Match"]]=relationship(back_populates='student')
+
+    @property
+    def has_resume(self) -> bool:
+        return self.resume_file is not None
 
 class Companies(Base):
     __tablename__="company"
@@ -44,6 +50,7 @@ class Job(Base):
     allowed_branches:Mapped[list[str]]=mapped_column(ARRAY(String),default=list,nullable=True)
     allowed_grads:Mapped[list[int]]=mapped_column(ARRAY(Integer),default=list)
     necessary_skills:Mapped[list[str]]=mapped_column(ARRAY(String), default=list)
+    embedding:Mapped[list[float] | None]=mapped_column(ARRAY(Float))
     apply_url:Mapped[str | None]=mapped_column(String(500))
     content_hash:Mapped[str]=mapped_column(String(64), unique=True)
     is_active:Mapped[bool]=mapped_column(Boolean, default=True)

@@ -35,6 +35,7 @@ class StudentOut(BaseModel):
     skills:list[str]
     role:str
     resume_link:str|None
+    has_resume:bool=False
     alerts_enabled:bool=False
     model_config=ConfigDict(from_attributes=True)
 

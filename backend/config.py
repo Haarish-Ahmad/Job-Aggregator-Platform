@@ -47,6 +47,7 @@ class Settings(BaseSettings):
     # Postings not seen by the scraper for this many days are marked inactive (cli.py deactivate-stale).
     stale_days: int = 14
     curriculum_file: Path = Path(__file__).parent / "curriculum.yaml"
+    resume_dir: Path = Path(__file__).parent / "resumes"
 
     @property
     def is_dev(self) -> bool:

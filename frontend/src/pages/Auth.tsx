@@ -3,6 +3,7 @@ import { Link, useLocation, useNavigate } from "react-router-dom";
 import { Icon } from "../components/Icon";
 import { Brand } from "../components/Layout";
 import { RESUME_ACCEPT, fileSize, resumeProblem } from "../components/ResumeUpload";
+import { api } from "../lib/api";
 import { useAuth } from "../lib/auth";
 import { parseList } from "../lib/format";
 
@@ -63,7 +64,7 @@ function ResumeField({ file, onChange }: { file: File | null; onChange: (file: F
           </div>
         ) : (
           <label>
-            <span>Resume <small>(optional · PDF or DOCX, up to 5 MB)</small></span>
+            <span>Resume <small>(optional · PDF, up to 5 MB)</small></span>
             <input type="file" accept={RESUME_ACCEPT} onChange={pick} />
           </label>
         )}
@@ -109,7 +110,7 @@ export function LoginPage() {
 }
 
 export function RegisterPage() {
-  const { register } = useAuth();
+  const { register, updateProfile } = useAuth();
   const navigate = useNavigate();
   const [f, setF] = useState({ name: "", email: "", password: "", branch: "", cgpa: "", grad_year: String(new Date().getFullYear() + 1), skills: "" });
   const set = (k: keyof typeof f) => (e: { target: { value: string } }) => setF({ ...f, [k]: e.target.value });
@@ -125,6 +126,19 @@ export function RegisterPage() {
       grad_year: Number(f.grad_year),
       skills: parseList(f.skills),
     });
+    if (resume) {
+      try {
+        const parsed = await api.uploadResume(resume);
+        await updateProfile({
+          skills: [...new Set([...parseList(f.skills), ...parsed.skills])],
+          ...(parsed.cgpa === null ? {} : { cgpa: parsed.cgpa }),
+          ...(parsed.grad_year === null ? {} : { grad_year: parsed.grad_year }),
+        });
+      } catch (err) {
+        navigate("/profile", { replace: true, state: { resumeUploadError: (err as Error).message } });
+        return;
+      }
+    }
     navigate("/jobs", { replace: true });
   });
   return (

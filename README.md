@@ -187,7 +187,7 @@ Everything is configured with environment variables; `.env.example` lists them w
 | `SMTP_HOST` `SMTP_PORT` `SMTP_USER` `SMTP_PASSWORD` `SMTP_STARTTLS` `MAIL_FROM` | Mailpit | Alert email delivery |
 | `ALERT_MIN_SCORE` | `60` | Minimum skills match (%) to be emailed |
 | `FIRECRAWL_API_URL`, `FIRECRAWL_API_KEY` | `http://host.docker.internal:3002` | Firecrawl endpoint (key optional) |
-| `SERVE_SOURCES` | `unstop,shine,internshala` | Sources scraped each cycle |
+| `SERVE_SOURCES` | `unstop,shine,internshala,amazon` | Sources scraped each cycle |
 | `SERVE_LIMIT` | `300` | Max jobs per source per cycle |
 | `SCRAPE_INTERVAL_HOURS` | `12` | Time between cycles |
 | `RUN_ON_START` | `true` | Scrape right after start-up |
@@ -210,9 +210,12 @@ Interactive docs are at `/api/docs`. Session-cookie auth; routes marked *admin* 
 | POST | `/auth/register`, `/auth/login`, `/auth/logout` | |
 | GET / PATCH | `/me`, `/me/update` | profile, skills, `alerts_enabled` |
 | GET | `/me/matches` | eligible jobs by skills match; `min_score`, `include_unmatched` |
-| GET | `/jobs` | `q`, `job_type`, `location`, `skill`, `grad_year`, `source`, `scope` (`all`/`india`/`remote`/`india_remote`), `sort`, `hide_expired`, `limit`, `offset`; total in `X-Total-Count` |
+| GET | `/jobs` | `q`, `job_type`, `location`, `skill`, `grad_year`, `source`, `company_group`, `scope` (`all`/`india`/`remote`/`india_remote`), `sort`, `hide_expired`, `limit`, `offset`; total in `X-Total-Count` |
 | GET | `/jobs/{id}`, `/companies` | login required |
 | POST | `/company` | login required |
+| POST/GET | `/me/resume` | login required; upload/download a PDF resume (5 MB max) |
+| GET | `/me/stats` | login required; personalized job and skill-gap summary |
+| GET | `/admin/analytics` | admin only |
 | GET | `/analytics/skills`, `/analytics/companies` | login |
 | GET | `/analytics/skill-gap`, `/analytics/curriculum` | *admin*; curriculum is `backend/curriculum.yaml` |
 | POST | `/internal/jobs` | *admin session or `X-Ingest-Token`*: scraper ingest |

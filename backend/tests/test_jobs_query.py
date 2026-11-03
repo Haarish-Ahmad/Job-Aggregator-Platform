@@ -4,6 +4,7 @@ from datetime import date, timedelta
 import pytest
 
 from conftest import INGEST_HEADERS
+from models import Job, Students
 
 pytestmark = pytest.mark.usefixtures("db_clean")
 
@@ -75,6 +76,11 @@ def test_location_skill_source_and_type_filters(catalog):
     assert titles(catalog.get("/jobs", params={"source": "internshala"})) == ["Remote React Engineer"]
     assert titles(catalog.get("/jobs", params={"job_type": "internship"})) == ["Remote React Engineer"]
 
+def test_company_group_filters_and_rejects_unknown_group(catalog):
+    seed(catalog, [job(9, company_name="Google")])
+    assert titles(catalog.get("/jobs", params={"company_group": "big_tech"})) == ["Role 9"]
+    assert catalog.get("/jobs", params={"company_group": "unknown"}).status_code == 400
+
 
 def test_grad_year_includes_jobs_open_to_any_year(catalog):
     got = titles(catalog.get("/jobs", params={"grad_year": 2026}))
@@ -113,6 +119,32 @@ def test_job_out_includes_company_and_freshness_fields(catalog):
     j = catalog.get("/jobs", params={"q": "python"}).json()[0]
     assert j["company_name"] == "Acme" and j["source"] == "shine" and j["external_id"] == "1"
     assert j["scraped_at"] and j["last_seen_at"] and j["is_india"] is True and j["is_remote"] is False
+
+
+def test_student_and_ingested_job_embeddings_are_saved_and_refreshed(student, db):
+    profile = db.query(Students).one()
+    original_embedding = profile.embedding
+    assert original_embedding
+
+    updated = student.patch("/me/update", json={"skills": ["go"]})
+    assert updated.status_code == 200
+    db.refresh(profile)
+    assert profile.embedding != original_embedding
+
+    response = student.post("/internal/jobs", headers=INGEST_HEADERS, json={"jobs": [
+        job(50, title="Go Engineer", required_skills=["go"]),
+    ]})
+    assert response.status_code == 200 and response.json()["inserted"] == 1
+    posting = db.query(Job).filter(Job.external_id == "50").one()
+    assert posting.embedding
+    original_job_embedding = posting.embedding
+
+    update = student.post("/internal/jobs", headers=INGEST_HEADERS, json={"jobs": [
+        job(50, title="Python Engineer", required_skills=["python"]),
+    ]})
+    assert update.status_code == 200 and update.json()["updated"] == 1
+    db.refresh(posting)
+    assert posting.embedding != original_job_embedding
 
 
 # --- auth that the README promised

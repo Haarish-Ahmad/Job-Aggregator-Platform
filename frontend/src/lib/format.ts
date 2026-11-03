@@ -78,7 +78,7 @@ export function whereLabel(job: Pick<Job, "location" | "is_remote">): string {
 
 export function sourceLabel(source: string | null): string {
   if (!source) return "Added manually";
-  return { shine: "Shine", internshala: "Internshala", unstop: "Unstop", greenhouse: "Greenhouse", microsoft: "Microsoft Careers", google: "Google Careers", ycombinator: "Y Combinator" }[source] ?? source;
+  return { shine: "Shine", internshala: "Internshala", unstop: "Unstop", amazon: "Amazon Jobs", greenhouse: "Greenhouse", microsoft: "Microsoft Careers", google: "Google Careers", ycombinator: "Y Combinator" }[source] ?? source;
 }
 
 /** Only http(s) links become buttons; anything else (javascript:, data:) is shown as plain text. */

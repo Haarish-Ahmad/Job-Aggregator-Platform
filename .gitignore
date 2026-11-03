@@ -16,6 +16,7 @@ dist/
 
 # Local data and editor files
 data/
+backend/resumes/
 .vscode/
 
 # Self-hosted Firecrawl is an external dependency (own repo), run separately

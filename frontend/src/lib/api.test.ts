@@ -57,6 +57,18 @@ describe("jobs()", () => {
   });
 });
 
+describe("resume endpoints", () => {
+  it("uploads a PDF as multipart form data without overriding the browser boundary", async () => {
+    fetchMock.mockResolvedValue(json({ has_resume: true }));
+    await api.uploadResume(new File(["resume"], "resume.pdf", { type: "application/pdf" }));
+    const [url, init] = fetchMock.mock.calls[0];
+    expect(url).toBe("/api/me/resume");
+    expect(init.method).toBe("POST");
+    expect(init.body).toBeInstanceOf(FormData);
+    expect(init.headers["Content-Type"]).toBeUndefined();
+  });
+});
+
 describe("errors", () => {
   it("uses FastAPI's detail string", async () => {
     fetchMock.mockResolvedValue(json({ detail: "Invalid user account or password" }, { status: 401 }));

@@ -34,7 +34,7 @@ def _rows(db: Session, sql: str, **params) -> list[dict]:
     return [dict(r._mapping) for r in db.execute(stmt, params)]
 
 
-def _top_skills(db: Session, scope: str, limit: int | None) -> list[dict]:
+def top_skills(db: Session, scope: str, limit: int | None) -> list[dict]:
     return _rows(
         db,
         f"""SELECT lower(trim(s)) AS skill, count(DISTINCT j.id) AS jobs
@@ -66,7 +66,7 @@ def _trend(db: Session, skills: list[str], weeks: int, scope: str) -> list[dict]
 def skills_demand(limit: int = Query(20, ge=1, le=100), weeks: int = Query(12, ge=1, le=104), scope: Scope = "all",
                   user=Depends(get_current_user), db: Session = Depends(get_db)):
     """Most demanded skills across active postings, plus a weekly trend for the top five."""
-    top = _top_skills(db, scope, limit)
+    top = top_skills(db, scope, limit)
     return {"top": top, "trend": _trend(db, [t["skill"] for t in top[:5]], weeks, scope)}
 
 
@@ -84,7 +84,7 @@ def skill_gap(limit: int = Query(25, ge=1, le=100), weeks: int = Query(12, ge=1,
                               FROM students st, unnest(st.skills) AS s WHERE st.role = 'student' GROUP BY 1""")
     }
     rows = []
-    for item in _top_skills(db, scope, limit):
+    for item in top_skills(db, scope, limit):
         demand_pct = round(100 * item["jobs"] / total_jobs, 1) if total_jobs else 0.0
         students = supply.get(item["skill"], 0)
         supply_pct = round(100 * students / total_students, 1) if total_students else 0.0
@@ -128,7 +128,7 @@ def curriculum_alignment(scope: Scope = "all", admin=Depends(require_admin), db:
         courses = load_curriculum(get_settings().curriculum_file)
     except ValueError as exc:
         raise HTTPException(status_code=500, detail=f"curriculum.yaml: {exc}") from exc
-    demand = {r["skill"]: r["jobs"] for r in _top_skills(db, scope, None)}
+    demand = {r["skill"]: r["jobs"] for r in top_skills(db, scope, None)}
     total_jobs = db.scalar(text(
         f"SELECT count(*) FROM job_postings j WHERE j.is_active AND {_SCOPE_SQL[scope]} AND cardinality(j.necessary_skills) > 0"
     )) or 0

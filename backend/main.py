@@ -1,23 +1,33 @@
+import logging
+import secrets
+from pathlib import Path
 from typing import Any,Callable,Literal
-from fastapi import FastAPI,Depends,HTTPException,Query,Request,Response
+from fastapi import FastAPI,Depends,File,HTTPException,Query,Request,Response,UploadFile
+from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session,contains_eager
 from sqlalchemy import any_,literal,select,func,or_,text
+from sqlalchemy.exc import SQLAlchemyError
+from pypdf.errors import PdfReadError, PdfStreamError
 from db import get_db
 from starlette.middleware.sessions import SessionMiddleware
 from models import Companies,Students,Job
 from werkzeug.security import generate_password_hash,check_password_hash
 from schemas import CompanyDetails, CompanyOut, StudentDetails, StudentOut, LoginDetails, StudentUpdate, JobOut, ingestionResult, bulkjobs, MatchOut
 from fastapi.middleware.cors import CORSMiddleware
-from matching import compute_matches, save_matches
+from matching import compute_matches, embed, save_matches, student_text
 from config import get_settings
 from deps import get_current_user,ingest_auth
 from ingest import deactivate_stale,ingest,make_hash  # noqa: F401  (make_hash re-exported: it used to live here)
 from metrics import MetricsMiddleware,metrics_response,INGEST_RECORDS
+from resume import extract_cgpa,extract_grad_year,extract_skills,load_vocab,pdf_to_text
+from target_companies import offcampus_targets
 import alerts
 import analytics
 import applications
+import insights
 
 settings=get_settings()
+logger=logging.getLogger(__name__)
 app=FastAPI(title="Job Aggregator Platform",root_path=settings.root_path)
 app.add_middleware(SessionMiddleware,secret_key=settings.secret_key,
     max_age=60 * 60 * 12,same_site="lax",https_only=settings.session_cookie_secure)
@@ -29,6 +39,7 @@ app.add_middleware(MetricsMiddleware)
 app.include_router(alerts.router)
 app.include_router(analytics.router)
 app.include_router(applications.router)
+app.include_router(insights.router)
 
 @app.get("/health")
 def check_health(db:Session=Depends(get_db)):
@@ -62,6 +73,7 @@ def student_register(data:StudentDetails,db:Session=Depends(get_db)):
         raise HTTPException(status_code=409,detail="Student Exists")
     password_hash=generate_password_hash(data.password)
     student=Students(**data.model_dump(exclude={"password"}),password_hash=password_hash)
+    student.embedding=embed([student_text(student.skills,student.branch)])[0]
     db.add(student)
     db.commit()
     db.refresh(student)
@@ -86,11 +98,67 @@ def me(user:Students=Depends(get_current_user)):
 
 @app.patch("/me/update",response_model=StudentOut)
 def update_profile(data:StudentUpdate,user:Students=Depends(get_current_user),db:Session=Depends(get_db)):
-    for field,val in data.model_dump(exclude_unset=True).items():
+    changes=data.model_dump(exclude_unset=True)
+    for field,val in changes.items():
         setattr(user,field,val)
+    if "skills" in changes or "branch" in changes:
+        user.embedding=embed([student_text(user.skills,user.branch)])[0]
     db.commit()
     db.refresh(user)
     return user
+
+@app.get("/me/resume")
+def download_resume(user:Students=Depends(get_current_user)):
+    if not user.resume_file:
+        raise HTTPException(status_code=404,detail="No resume uploaded")
+    if Path(user.resume_file).name != user.resume_file:
+        raise HTTPException(status_code=404,detail="Resume file missing")
+    path=settings.resume_dir/user.resume_file
+    if not path.is_file():
+        raise HTTPException(status_code=404,detail="Resume file missing")
+    return FileResponse(path,media_type="application/pdf",filename="resume.pdf")
+
+@app.post("/me/resume")
+async def upload_resume(file:UploadFile=File(...),user:Students=Depends(get_current_user),db:Session=Depends(get_db)):
+    data=await file.read(5_000_001)
+    if len(data)>5_000_000:
+        raise HTTPException(status_code=413,detail="File too large. Max 5 MB")
+    if not data.startswith(b"%PDF"):
+        raise HTTPException(status_code=415,detail="Only PDF files are supported")
+    try:
+        resume_text=pdf_to_text(data)
+    except (PdfReadError,PdfStreamError,ValueError,EOFError) as exc:
+        raise HTTPException(status_code=422,detail="Could not read this PDF") from exc
+    if len(resume_text.strip())<50:
+        raise HTTPException(status_code=422,detail="No text found (scanned PDF?)")
+
+    found=extract_skills(resume_text,load_vocab(db))
+    name=f"{user.id}_{secrets.token_hex(16)}.pdf"
+    settings.resume_dir.mkdir(parents=True,exist_ok=True)
+    path=settings.resume_dir/name
+    path.write_bytes(data)
+    old=user.resume_file
+    user.resume_file=name
+    try:
+        db.commit()
+    except SQLAlchemyError as exc:
+        db.rollback()
+        path.unlink(missing_ok=True)
+        raise HTTPException(status_code=500,detail="Could not save resume") from exc
+    if old and Path(old).name==old:
+        try:
+            (settings.resume_dir/old).unlink(missing_ok=True)
+        except OSError:
+            logger.warning("Could not remove replaced resume file %s",old)
+
+    mine={skill.lower() for skill in user.skills}
+    return {
+        "has_resume":True,
+        "skills":found,
+        "new_skills":[skill for skill in found if skill not in mine],
+        "cgpa":extract_cgpa(resume_text),
+        "grad_year":extract_grad_year(resume_text),
+    }
 
 @app.post("/internal/jobs",response_model=ingestionResult)
 def get_jobs(data:bulkjobs,auth=Depends(ingest_auth),db:Session=Depends(get_db)):
@@ -119,6 +187,7 @@ SORTS:dict[str,Callable[[],tuple[Any,...]]]={
 def jobs(response:Response,q: str | None = None,company_id: int | None = None,job_type: str | None = None,active_only: bool = True,
     limit: int = Query(50,ge=1),offset: int = Query(0,ge=0),
     location: str | None = None,skill: str | None = None,grad_year: int | None = None,source: str | None = None,
+    company_group: str | None = None,
     scope: Literal["all","india","remote","india_remote"] = "all",hide_expired: bool = False,
     sort: Literal["newest","oldest","deadline","title"] = "newest",
     user: Students = Depends(get_current_user),db: Session = Depends(get_db)):
@@ -127,6 +196,11 @@ def jobs(response:Response,q: str | None = None,company_id: int | None = None,jo
         query=query.where(or_(Job.title.ilike(_like(q),escape="\\"),Companies.company_name.ilike(_like(q),escape="\\")))
     if company_id:
         query=query.where(Job.company_id==company_id)
+    if company_group:
+        target=offcampus_targets.get(company_group)
+        if target is None:
+            raise HTTPException(status_code=400,detail="Invalid company group")
+        query=query.where(func.lower(Companies.company_name).in_([name.lower() for name in target]))
     if job_type:
         query=query.where(Job.job_type==job_type)
     if active_only:

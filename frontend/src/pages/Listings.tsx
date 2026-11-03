@@ -29,7 +29,17 @@ const TYPES = [
   { value: "part_time", label: "Part time" },
   { value: "contract", label: "Contract" },
 ];
-const SOURCES = ["", "shine", "internshala", "unstop", "greenhouse", "microsoft", "google", "ycombinator"];
+const SOURCES = ["", "shine", "internshala", "unstop", "amazon", "greenhouse", "microsoft", "google", "ycombinator"];
+const COMPANY_GROUPS = [
+  { value: "", label: "Any company group" },
+  { value: "big_tech", label: "Big tech" },
+  { value: "indian_startups", label: "Indian startups" },
+  { value: "fintech", label: "Fintech" },
+  { value: "ai_and_deeptech", label: "AI & deep tech" },
+  { value: "finance_and_quant", label: "Finance & quant" },
+  { value: "it_services_mass_hiring", label: "IT services" },
+  { value: "core_engineering", label: "Core engineering" },
+];
 // The same job types as TYPES, as a row of big one-tap buttons above the results.
 const CATEGORIES: { value: string; label: string; icon: IconName }[] = [
   { value: "", label: "All jobs", icon: "layers" },
@@ -53,6 +63,7 @@ export function queryFromParams(p: URLSearchParams): JobQuery & { page: number }
     skill: p.get("skill") ?? undefined,
     grad_year: grad > 0 ? grad : undefined,
     source: p.get("source") ?? undefined,
+    company_group: p.get("company_group") ?? undefined,
     scope: (p.get("scope") as Scope) || "india_remote",
     sort: (p.get("sort") as Sort) || "newest",
     hide_expired: p.get("hide_expired") === "1",
@@ -87,7 +98,7 @@ export function ListingsPage() {
     e.preventDefault();
     update({ q: text.q.trim(), location: text.location.trim(), skill: text.skill.trim(), grad_year: text.grad_year });
   };
-  const filtered = ["q", "job_type", "location", "skill", "grad_year", "source", "hide_expired"].some((k) => params.get(k));
+  const filtered = ["q", "job_type", "location", "skill", "grad_year", "source", "company_group", "hide_expired"].some((k) => params.get(k));
 
   return (
     <>
@@ -151,6 +162,12 @@ export function ListingsPage() {
               Source
               <select value={query.source ?? ""} onChange={(e) => update({ source: e.target.value })}>
                 {SOURCES.map((s) => <option key={s} value={s}>{s ? sourceLabel(s) : "Any source"}</option>)}
+              </select>
+            </label>
+            <label className="field">
+              Company group
+              <select value={query.company_group ?? ""} onChange={(e) => update({ company_group: e.target.value })}>
+                {COMPANY_GROUPS.map((group) => <option key={group.value} value={group.value}>{group.label}</option>)}
               </select>
             </label>
             <label className="field">

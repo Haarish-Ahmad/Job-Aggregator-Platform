@@ -15,6 +15,7 @@ const NAV: { to: string; label: string; end?: boolean }[] = [
 const MOBILE_TABS: { to: string; label: string; icon: IconName }[] = [
   { to: "/jobs", label: "Jobs", icon: "briefcase" },
   { to: "/matches", label: "My matches", icon: "target" },
+  { to: "/dashboard", label: "Dashboard", icon: "chart" },
   { to: "/applications", label: "Applications", icon: "bookmark" },
   { to: "/analytics", label: "Analytics", icon: "chart" },
   { to: "/profile", label: "Profile", icon: "user" },
@@ -36,6 +37,9 @@ export function SiteHeader() {
   const { user, checking, logout } = useAuth();
   const navigate = useNavigate();
   const onHome = useLocation().pathname === "/";
+  const nav = user
+    ? [...NAV, { to: "/dashboard", label: "Dashboard" }, ...(user.role === "admin" ? [{ to: "/admin", label: "Admin" }] : [])]
+    : NAV;
   return (
     <header className="topbar">
       <div className="topbar-inner">
@@ -43,7 +47,7 @@ export function SiteHeader() {
           <Brand />
         </NavLink>
         <nav aria-label="Main" className="tabs">
-          {NAV.map((t) => (
+          {nav.map((t) => (
             <NavLink key={t.to} to={t.to} end={t.end}>
               {t.label}
             </NavLink>
@@ -85,9 +89,11 @@ export function SiteHeader() {
 }
 
 export function BottomTabs() {
+  const { user } = useAuth();
+  const tabs = user?.role === "admin" ? [...MOBILE_TABS, { to: "/admin", label: "Admin", icon: "user" as const }] : MOBILE_TABS;
   return (
     <nav aria-label="Main (mobile)" className="bottom-tabs">
-      {MOBILE_TABS.map((t) => (
+      {tabs.map((t) => (
         <NavLink key={t.to} to={t.to}>
           <Icon name={t.icon} size={22} />
           <span>{t.label}</span>

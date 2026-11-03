@@ -1,14 +1,18 @@
 import type {
+  AdminAnalytics,
   Application,
   ApplicationUpdate,
+  Company,
   CompaniesReport,
   CurriculumReport,
   Job,
   JobPage,
   JobQuery,
   MatchedJob,
+  MyStats,
   ProfileUpdate,
   RegisterInput,
+  ResumeParseResult,
   Scope,
   SkillGapReport,
   SkillsReport,
@@ -94,6 +98,12 @@ export const api = {
     await request("/auth/logout", { method: "POST" });
   },
   updateProfile: async (update: ProfileUpdate) => (await request("/me/update", { method: "PATCH", json: update })).json() as Promise<Student>,
+  uploadResume: async (file: File) => {
+    const form = new FormData();
+    form.append("file", file);
+    return (await request("/me/resume", { method: "POST", body: form })).json() as Promise<ResumeParseResult>;
+  },
+  downloadResume: async () => (await request("/me/resume")).blob(),
 
   async jobs(query: JobQuery): Promise<JobPage> {
     const resp = await request(`/jobs${qs({ ...query, hide_expired: query.hide_expired })}`);
@@ -104,6 +114,11 @@ export const api = {
   job: (id: number) => getJson<Job>(`/jobs/${id}`),
   matches: (opts: { min_score?: number; include_unmatched?: boolean } = {}) =>
     getJson<MatchedJob[]>(`/me/matches${qs({ min_score: opts.min_score || undefined, include_unmatched: opts.include_unmatched })}`),
+  myStats: (limit = 10) => getJson<MyStats>(`/me/stats${qs({ limit })}`),
+  adminAnalytics: (limit = 50) => getJson<AdminAnalytics>(`/admin/analytics${qs({ limit })}`),
+  companyDirectory: () => getJson<Company[]>("/companies"),
+  createCompany: async (company: Omit<Company, "id">) =>
+    (await request("/company", { method: "POST", json: company })).json() as Promise<Company>,
 
   applications: () => getJson<Application[]>("/me/applications"),
   /** Always created as "saved"; the student moves it on by hand. 409 if the job is already tracked. */

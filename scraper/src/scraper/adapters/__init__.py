@@ -1,4 +1,5 @@
 from scraper.adapters.base import SourceAdapter
+from scraper.adapters.amazon import AmazonAdapter
 from scraper.adapters.google import GoogleAdapter
 from scraper.adapters.greenhouse import GreenhouseAdapter
 from scraper.adapters.internshala import InternshalaAdapter
@@ -9,6 +10,7 @@ from scraper.adapters.ycombinator import YCombinatorAdapter
 
 # Adding a new site: write the adapter class, add one line here.
 REGISTRY: dict[str, type[SourceAdapter]] = {
+    AmazonAdapter.name: AmazonAdapter,
     MicrosoftAdapter.name: MicrosoftAdapter,
     InternshalaAdapter.name: InternshalaAdapter,
     GoogleAdapter.name: GoogleAdapter,

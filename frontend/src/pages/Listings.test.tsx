@@ -90,6 +90,15 @@ it("the category row filters by job type and shows which one is selected", async
   expect(screen.getByLabelText("Type")).toHaveValue("internship");
 });
 
+it("filters by company group and preserves it in the URL", async () => {
+  jobs.mockResolvedValue({ jobs: [job()], total: 1 });
+  page();
+  await screen.findByText("Python Developer");
+  await userEvent.selectOptions(screen.getByLabelText("Company group"), "big_tech");
+  await waitFor(() => expect(jobs).toHaveBeenLastCalledWith(expect.objectContaining({ company_group: "big_tech" })));
+  expect(screen.getByTestId("url").textContent).toContain("company_group=big_tech");
+});
+
 it("changing a filter goes back to page 1, and clear filters resets", async () => {
   jobs.mockResolvedValue({ jobs: [job()], total: 100 });
   renderAt(<><Routes><Route path="/" element={<ListingsPage />} /></Routes><Where /></>, "/?page=3&q=x", { auth: false });
@@ -121,8 +130,8 @@ it("hides pagination when everything fits on one page", async () => {
 
 describe("queryFromParams", () => {
   it("parses and defaults", () => {
-    const q = queryFromParams(new URLSearchParams("page=2&grad_year=2026&hide_expired=1&sort=title"));
-    expect(q).toMatchObject({ page: 2, offset: PAGE_SIZE, grad_year: 2026, hide_expired: true, sort: "title", scope: "india_remote" });
+    const q = queryFromParams(new URLSearchParams("page=2&grad_year=2026&hide_expired=1&sort=title&company_group=fintech"));
+    expect(q).toMatchObject({ page: 2, offset: PAGE_SIZE, grad_year: 2026, hide_expired: true, sort: "title", scope: "india_remote", company_group: "fintech" });
     expect(queryFromParams(new URLSearchParams("page=-4&grad_year=abc"))).toMatchObject({ page: 1, grad_year: undefined });
   });
 });

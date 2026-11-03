@@ -14,5 +14,5 @@ export function job(overrides: Partial<Job> = {}): Job {
 }
 
 export function student(overrides: Partial<Student> = {}): Student {
-  return { id: 1, name: "Asha", email: "asha@college.edu", branch: "CSE", cgpa: 8.5, grad_year: 2026, skills: ["python"], role: "student", resume_link: null, alerts_enabled: false, ...overrides };
+  return { id: 1, name: "Asha", email: "asha@college.edu", branch: "CSE", cgpa: 8.5, grad_year: 2026, skills: ["python"], role: "student", resume_link: null, has_resume: false, alerts_enabled: false, ...overrides };
 }

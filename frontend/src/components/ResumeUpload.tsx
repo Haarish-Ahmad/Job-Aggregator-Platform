@@ -1,14 +1,14 @@
 import { useId, useRef, useState, type ChangeEvent } from "react";
 import { Icon } from "./Icon";
 
-export const RESUME_ACCEPT = ".pdf,.docx,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document";
-const RESUME_EXTENSIONS = [".pdf", ".docx"];
+export const RESUME_ACCEPT = ".pdf,application/pdf";
+const RESUME_EXTENSIONS = [".pdf"];
 const RESUME_MAX_BYTES = 5 * 1024 * 1024;
 
-/** Why a picked resume can't be used, or undefined if it's fine. Browsers often report DOCX with an empty type, so the extension decides. */
+/** Why a picked resume can't be used, or undefined if it's fine. */
 export function resumeProblem(file: File): string | undefined {
   const name = file.name.toLowerCase();
-  if (!RESUME_EXTENSIONS.some((ext) => name.endsWith(ext))) return "Choose a PDF or DOCX file.";
+  if (!RESUME_EXTENSIONS.some((ext) => name.endsWith(ext))) return "Choose a PDF file.";
   if (file.size === 0) return "That file is empty.";
   if (file.size > RESUME_MAX_BYTES) return "That file is larger than 5 MB.";
   return undefined;
@@ -58,7 +58,7 @@ export function ResumeUpload({ file, onChange }: { file: File | null; onChange: 
         <div className="resume-box">
           <span className="resume-icon"><Icon name="upload" size={22} /></span>
           <strong>Upload your resume</strong>
-          <small>PDF or DOCX, up to 5 MB</small>
+          <small>PDF, up to 5 MB</small>
           <button type="button" className="btn small" onClick={choose}>Choose file</button>
         </div>
       )}

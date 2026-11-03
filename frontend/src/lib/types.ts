@@ -9,7 +9,23 @@ export interface Student {
   skills: string[];
   role: "student" | "admin" | string;
   resume_link: string | null;
+  has_resume: boolean;
   alerts_enabled: boolean;
+}
+
+export interface Company {
+  id: number;
+  company_name: string;
+  careers_url: string;
+  description: string | null;
+}
+
+export interface ResumeParseResult {
+  has_resume: boolean;
+  skills: string[];
+  new_skills: string[];
+  cgpa: number | null;
+  grad_year: number | null;
 }
 
 export interface Job {
@@ -53,6 +69,7 @@ export interface JobQuery {
   skill?: string;
   grad_year?: number;
   source?: string;
+  company_group?: string;
   scope?: Scope;
   sort?: Sort;
   hide_expired?: boolean;
@@ -104,6 +121,26 @@ export interface CurriculumReport {
   alignment_pct: number;
   courses: { course: string; jobs_mentioning: number; jobs_pct: number; skills: { skill: string; jobs: number }[] }[];
   uncovered_skills: SkillCount[];
+}
+
+export interface MyStats {
+  matching_jobs: number;
+  apply_early: { id: number; title: string; company_name: string; apply_url: string | null; score: number }[];
+  top_skills: SkillCount[];
+  skill_gap: SkillCount[];
+}
+
+export interface AdminAnalytics {
+  companies: number;
+  active_jobs: Job[];
+  active_jobs_count: number;
+  jobs_this_week: Job[];
+  average_match: number;
+  topskill: SkillCount[];
+  students: number;
+  early_jobs: Job[];
+  late_jobs: Job[];
+  top_posting: string[];
 }
 
 export interface RegisterInput {
