@@ -1,8 +1,8 @@
-import os
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker,DeclarativeBase
+from config import get_settings
 
-DATABASE_URL=os.getenv("DATABASE_URL","postgresql://jobs:jobs@localhost:5432/jobs")
+DATABASE_URL=get_settings().database_url
 engine=create_engine(DATABASE_URL,pool_pre_ping=True)
 session_local=sessionmaker(bind=engine)
 

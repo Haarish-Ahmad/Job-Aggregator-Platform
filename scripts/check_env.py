@@ -41,6 +41,8 @@ def settings_fields(path: Path) -> set[str]:
     return {m.upper() for m in re.findall(r"^    ([a-z][a-z0-9_]*)\s*:\s*[\w\[\]| .]+(?:=|\n)", body, re.M)}
 
 
+# Settings that exist in code but are intentionally not exposed through compose / .env.example.
+BACKEND_NOT_IN_COMPOSE = {"APP_ENV", "DATABASE_URL", "ROOT_PATH", "ALERT_MAX_JOBS_PER_EMAIL", "CURRICULUM_FILE", "IS_DEV"}
 # set in compose itself or derived (not user-facing knobs)
 SCRAPER_NOT_IN_COMPOSE = {"USER_AGENT", "SEARCH_QUERIES", "LOCATIONS", "OUTPUT_DIR", "MAX_MARKDOWN_CHARS",
                           "BACKEND_URL", "INGEST_BATCH_SIZE",
@@ -58,13 +60,8 @@ def main() -> int:
         problems.append(f".env.example documents {name} but docker-compose.yml never reads it")
 
     backend_env = compose_service_env("backend")
-    backend_settings = {
-        "ADMIN_EMAIL", "ADMIN_PASSWORD", "ALERT_MIN_SCORE", "ALERT_PER_EMAIL", "COOKIE_SECURE",
-        "CORS_ORIGINS", "DATABASE_URL", "INGEST_TOKEN", "RESUME_DIR", "ROOT_PATH", "SECRET_KEY",
-        "SMTP_FROM", "SMTP_HOST", "SMTP_PORT",
-    }
-    for name in sorted(backend_settings - backend_env):
-        problems.append(f"backend setting {name} cannot be set through compose")
+    for name in sorted(settings_fields(ROOT / "backend" / "config.py") - backend_env - BACKEND_NOT_IN_COMPOSE):
+        problems.append(f"backend setting {name} cannot be set through compose (add it, or list it as code-only in check_env.py)")
     scraper_env = compose_service_env("scraper")
     for name in sorted(settings_fields(ROOT / "scraper" / "src" / "scraper" / "config.py") - scraper_env - SCRAPER_NOT_IN_COMPOSE):
         problems.append(f"scraper setting {name} cannot be set through compose (add it, or list it as code-only in check_env.py)")

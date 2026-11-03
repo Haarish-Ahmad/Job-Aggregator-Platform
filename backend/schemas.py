@@ -1,9 +1,6 @@
-from pydantic import BaseModel,ConfigDict,EmailStr,Field,field_validator
-from datetime import date,datetime
 from typing import Literal
-import re
-
-SPECIAL_CHARS=r"""!@#$%^&*()_+\-=\[\]{};':"\\|,.<>/?`~"""
+from pydantic import BaseModel,ConfigDict,EmailStr,Field,field_validator
+from datetime import date, datetime
 
 class CompanyDetails(BaseModel):
     company_name:str
@@ -17,29 +14,12 @@ class CompanyOut(CompanyDetails):
 class StudentDetails(BaseModel):
     name:str
     email:EmailStr
-    password:str=Field(min_length=8,max_length=100)
-    branch:str|None=Field(default=None, max_length=100)
-    cgpa:float|None=Field(default=None, ge=0, le=10)
-    grad_year:int=Field(ge=2000, le=2040)
+    password:str=Field(min_length=8,max_length=128)
+    branch:str|None=None
+    cgpa:float|None=Field(default=None,ge=0,le=10)
+    grad_year:int=Field(ge=2000,le=2100)
     skills:list[str]=[]
     resume_link:str|None=None
-    @field_validator("password")
-    @classmethod
-    def strong_password(cls, v: str) -> str:
-        errors=[]
-        if not re.search(r"[A-Z]", v):
-            errors.append("one uppercase letter")
-        if not re.search(r"[a-z]", v):
-            errors.append("one lowercase letter")
-        if not re.search(r"\d", v):
-            errors.append("one digit")
-        if not re.search(rf"[{SPECIAL_CHARS}]", v):
-            errors.append("one special character")
-        if re.search(r"\s", v):
-            errors.append("no spaces")
-        if errors:
-            raise ValueError("Password needs: " + ", ".join(errors))
-        return v
 
 class LoginDetails(BaseModel):
     email:EmailStr
@@ -59,18 +39,27 @@ class StudentOut(BaseModel):
     alerts_enabled:bool=False
     model_config=ConfigDict(from_attributes=True)
 
+# Column sizes, mirrored from models.py. Ingest checks them per record so one bad record is
+# rejected with a reason instead of failing the whole batch with a database error.
+FIELD_LIMITS={"company_name":100,"title":255,"location":150,"job_type":30,"apply_url":500,
+              "source":50,"external_id":255,"source_content_hash":64,"work_mode":20}
+MAX_INGEST_BATCH=500
+
+Status=Literal["inserted","updated","unchanged","rejected"]
+
 class RecordResult(BaseModel):
     index:int
-    status:Literal["inserted","updated","unchanged","rejected"]
+    status:Status
     job_id:int|None=None
     reason:str|None=None
 
 class ingestionResult(BaseModel):
     inserted:int
     skipped:int
+    # Additive fields: older clients that only read inserted/skipped keep working.
     updated:int=0
     rejected:int=0
-    results:list[RecordResult]=Field(default_factory=list)
+    results:list[RecordResult]=[]
 
 class jobsIn(BaseModel):
     company_name:str
@@ -80,45 +69,36 @@ class jobsIn(BaseModel):
     job_type:str | None = None
     description:str | None = None
     min_cgpa:float | None = None
-    allowed_branches:list[str] = Field(default_factory=list)
-    allowed_grads:list[int] = Field(default_factory=list)
-    required_skills:list[str] = Field(default_factory=list)
+    allowed_branches:list[str] = []
+    allowed_grads:list[int] = []
+    required_skills:list[str] = []
     deadline:date | None = None
-    source:str|None=None
-    external_id:str|None=None
-    source_content_hash:str|None=None
-    is_remote:bool=False
-    is_india:bool|None=None
-    work_mode:str|None=None
-    posted_date:date|None=None
-
-    @field_validator("company_name","title","apply_url","location","job_type","source","external_id","source_content_hash","work_mode")
-    @classmethod
-    def clean_text(cls,v):
-        return v.strip() if v is not None else v
+    # Optional, sent by the scraper. source + external_id together identify a posting.
+    source:str | None = None
+    external_id:str | None = None
+    source_content_hash:str | None = None
+    is_remote:bool = False
+    is_india:bool | None = None
+    work_mode:str | None = None
+    posted_date:date | None = None
 
     @field_validator("allowed_branches","required_skills")
     @classmethod
     def check_skills(cls,v):
         if not v:
             return v
-        return list(dict.fromkeys(s.strip().lower() for s in v if s.strip()))
-
-    @field_validator("allowed_grads")
-    @classmethod
-    def clean_graduation_years(cls,v):
-        return list(dict.fromkeys(v))
+        return [s.strip().lower() for s in v]
 
 class bulkjobs(BaseModel):
-    jobs:list[jobsIn]=Field(max_length=500)
+    jobs:list[jobsIn]=Field(max_length=MAX_INGEST_BATCH)
 
 class StudentUpdate(BaseModel):
     branch:str|None=None
     cgpa:float|None=Field(default=None, ge=0, le=10)
-    grad_year:int|None=Field(default=None, ge=2020, le=2040)
+    grad_year:int|None=Field(default=None,ge=2000,le=2100)
     skills:list[str]|None=None 
-    alerts_enabled: bool|None=None
     resume_link:str|None=None
+    alerts_enabled:bool|None=None
     @field_validator("skills")
     @classmethod
     def clean_skills(cls,val):
@@ -140,68 +120,37 @@ class JobOut(BaseModel):
     apply_url: str | None = None
     deadline_at: date | None = None
     is_active: bool
-    company_name:str|None=None
-    source:str|None=None
-    external_id:str|None=None
-    is_remote:bool=False
-    is_india:bool|None=None
-    work_mode:str|None=None
-    posted_date:date|None=None
-    scraped_at:datetime|None=None
-    last_seen_at:datetime|None=None
-    updated_at:datetime|None=None
+    company_name: str | None = None
+    source: str | None = None
+    external_id: str | None = None
+    is_remote: bool = False
+    is_india: bool | None = None
+    work_mode: str | None = None
+    posted_date: date | None = None
+    scraped_at: datetime | None = None
+    last_seen_at: datetime | None = None
+    updated_at: datetime | None = None
     model_config = ConfigDict(from_attributes=True)    
 
 class MatchOut(BaseModel):
     score:float
     job:JobOut
-
-ApplicationStatus=Literal["saved","applied","assessment","interview","offer","rejected","withdrawn"]
+# Application tracker. Mirrors models.APPLICATION_STATUSES.
+ApplicationStatus=Literal["saved","applied","interview","offer","rejected"]
 
 class ApplicationCreate(BaseModel):
-    job_id:int=Field(gt=0)
-    status:ApplicationStatus="applied"
-    notes:str|None=Field(default=None,max_length=5000)
+    # Only the job: a new application is always 'saved'. Any other field sent (e.g. a status) is ignored.
+    job_id:int
 
 class ApplicationUpdate(BaseModel):
     status:ApplicationStatus|None=None
-    notes:str|None=Field(default=None,max_length=5000)
+    applied_on:date|None=None
 
 class ApplicationOut(BaseModel):
     id:int
-    job_id:int
     status:ApplicationStatus
-    notes:str|None=None
-    applied_at:datetime|None=None
-    created_at:datetime
-    updated_at:datetime
+    saved_on:date
+    applied_on:date|None
+    updated_at:datetime|None=None
+    job:JobOut
     model_config=ConfigDict(from_attributes=True)
-
-class SkillCount(BaseModel):
-    skill: str
-    jobs: int    
-
-class Analytics(BaseModel):
-    companies:int
-    active_jobs:list[JobOut]
-    active_jobs_count:int
-    jobs_this_week:list[JobOut]
-    average_match:float
-    topskill:list[SkillCount]
-    students:int
-    early_jobs:list[JobOut]
-    late_jobs:list[JobOut]
-    top_posting:list[str]
-
-class EarlyJob(BaseModel):
-    id:int
-    title:str
-    company_name:str
-    apply_url:str | None=None
-    score:float
-
-class MyStats(BaseModel):
-    matching_jobs:int
-    apply_early: list[EarlyJob]
-    top_skills: list[SkillCount]
-    skill_gap: list[SkillCount]

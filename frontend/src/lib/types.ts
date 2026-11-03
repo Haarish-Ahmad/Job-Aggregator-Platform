@@ -13,6 +13,21 @@ export interface Student {
   alerts_enabled: boolean;
 }
 
+export interface Company {
+  id: number;
+  company_name: string;
+  careers_url: string;
+  description: string | null;
+}
+
+export interface ResumeParseResult {
+  has_resume: boolean;
+  skills: string[];
+  new_skills: string[];
+  cgpa: number | null;
+  grad_year: number | null;
+}
+
 export interface Job {
   id: number;
   company_id: number;
@@ -108,46 +123,13 @@ export interface CurriculumReport {
   uncovered_skills: SkillCount[];
 }
 
-export interface RegisterInput {
-  name: string;
-  email: string;
-  password: string;
-  branch?: string;
-  cgpa?: number;
-  grad_year: number;
-  skills: string[];
-}
-export type ProfileUpdate = Partial<Pick<Student, "branch" | "cgpa" | "grad_year" | "skills" | "resume_link" | "alerts_enabled">>;
-
-export type ApplicationStatus = "saved" | "applied" | "assessment" | "interview" | "offer" | "rejected" | "withdrawn";
-export interface Application {
-  id: number;
-  job_id: number;
-  status: ApplicationStatus;
-  notes: string | null;
-  applied_at: string | null;
-  created_at: string;
-  updated_at: string;
-}
-export interface ResumeParseResult {
-  has_resume: boolean;
-  skills: string[];
-  new_skills: string[];
-  cgpa: number | null;
-  grad_year: number | null;
-}
-export interface Company {
-  id: number;
-  company_name: string;
-  careers_url: string;
-  description: string | null;
-}
 export interface MyStats {
   matching_jobs: number;
   apply_early: { id: number; title: string; company_name: string; apply_url: string | null; score: number }[];
   top_skills: SkillCount[];
   skill_gap: SkillCount[];
 }
+
 export interface AdminAnalytics {
   companies: number;
   active_jobs: Job[];
@@ -160,3 +142,29 @@ export interface AdminAnalytics {
   late_jobs: Job[];
   top_posting: string[];
 }
+
+export interface RegisterInput {
+  name: string;
+  email: string;
+  password: string;
+  branch?: string;
+  cgpa?: number;
+  grad_year: number;
+  skills: string[];
+}
+export type ProfileUpdate = Partial<Pick<Student, "branch" | "cgpa" | "grad_year" | "skills" | "resume_link" | "alerts_enabled">>;
+
+// Application tracker. Mirrors backend models.APPLICATION_STATUSES; a new application is always "saved".
+export const APPLICATION_STATUSES = ["saved", "applied", "interview", "offer", "rejected"] as const;
+export type ApplicationStatus = (typeof APPLICATION_STATUSES)[number];
+
+export interface Application {
+  id: number;
+  status: ApplicationStatus;
+  saved_on: string;
+  applied_on: string | null;
+  updated_at: string | null;
+  job: Job;
+}
+
+export type ApplicationUpdate = Partial<Pick<Application, "status" | "applied_on">>;

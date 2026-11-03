@@ -1,7 +1,7 @@
 """Integration tests: the real scraper pipeline talking to the real backend app (in-process) and Postgres.
 
 Needs a Postgres at TEST_DATABASE_URL (default localhost:5432/jobs_test) and both packages installed:
-    pip install -r backend/requirements-dev.txt && pip install -e "scraper[dev]"
+    pip install -r requirements-dev.txt && pip install -e "scraper[dev]"
 """
 import os
 import sys
@@ -23,7 +23,6 @@ from fastapi.testclient import TestClient  # noqa: E402
 from sqlalchemy import text  # noqa: E402
 
 from db import engine  # noqa: E402
-import main  # noqa: E402
 from main import app  # noqa: E402
 
 
@@ -40,12 +39,7 @@ def schema():
 @pytest.fixture(autouse=True)
 def clean_tables():
     with engine.begin() as conn:
-        conn.execute(text("TRUNCATE applications, matches, job_postings, company, students, scrapes RESTART IDENTITY CASCADE"))
-
-
-@pytest.fixture(autouse=True)
-def fast_embeddings(monkeypatch):
-    monkeypatch.setattr(main,"embed",lambda texts:[[1.0,0.0] for _ in texts])
+        conn.execute(text("TRUNCATE matches, job_postings, company, students, scrapes RESTART IDENTITY CASCADE"))
 
 
 @pytest.fixture

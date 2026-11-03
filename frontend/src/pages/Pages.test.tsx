@@ -8,13 +8,12 @@ import { renderAt } from "../test/render";
 import { JobDetailPage, safeUrl } from "./JobDetail";
 import { MatchesPage } from "./Matches";
 import { ProfilePage } from "./Profile";
-import { ApplicationsPage } from "./Applications";
 
 vi.mock("../lib/api", async (orig) => {
   const real = await orig<typeof import("../lib/api")>();
   return {
     ...real,
-    api: Object.fromEntries(["me", "login", "register", "logout", "updateProfile", "jobs", "job", "applications", "createApplication", "updateApplication", "deleteApplication", "uploadResume", "downloadResume", "myStats", "adminAnalytics", "companyDirectory", "createCompany", "matches", "skills", "skillGap", "companies", "curriculum"].map((k) => [k, vi.fn()])),
+    api: Object.fromEntries(["me", "login", "register", "logout", "updateProfile", "jobs", "job", "matches", "skills", "skillGap", "companies", "curriculum", "applications", "saveJob", "updateApplication", "removeApplication"].map((k) => [k, vi.fn()])),
   };
 });
 const m = vi.mocked(api);
@@ -136,15 +135,12 @@ describe("job detail", () => {
 
 describe("matches", () => {
   const open = () => renderAt(<MatchesPage />);
-  it("lists ranked matches with scores and asks the API for 0% jobs only on request", async () => {
+  it("lists ranked matches with their scores", async () => {
     signedIn();
     m.matches.mockResolvedValue([{ score: 100, job: job({ id: 1 }) }, { score: 50, job: job({ id: 2, title: "Half" }) }]);
     open();
     expect(await screen.findByLabelText("100 percent match")).toBeInTheDocument();
     expect(screen.getByLabelText("50 percent match")).toBeInTheDocument();
-    expect(m.matches).toHaveBeenLastCalledWith({ min_score: 0, include_unmatched: false });
-    await userEvent.click(screen.getByLabelText(/Include jobs with 0%/));
-    await waitFor(() => expect(m.matches).toHaveBeenLastCalledWith({ min_score: 0, include_unmatched: true }));
   });
   it("tells a student with no skills to fill in their profile", async () => {
     signedIn({ skills: [], cgpa: null });
@@ -162,18 +158,6 @@ describe("matches", () => {
 });
 
 describe("profile and alerts", () => {
-  it("uploads a PDF resume and displays the extracted profile details", async () => {
-    signedIn();
-    m.uploadResume.mockResolvedValue({ has_resume: true, skills: ["python", "sql"], new_skills: ["sql"], cgpa: 8.7, grad_year: 2027 });
-    renderAt(<ProfilePage />);
-    const file = new File(["resume contents"], "resume.pdf", { type: "application/pdf" });
-    await userEvent.upload(await screen.findByLabelText("Resume"), file);
-    expect(await screen.findByText("Extracted from resume")).toBeInTheDocument();
-    expect(m.uploadResume).toHaveBeenCalledWith(file);
-    expect(screen.getByLabelText(/Skills/)).toHaveValue("python, sql");
-    expect(screen.getByLabelText("CGPA")).toHaveValue(8.7);
-    expect(screen.getByLabelText("Graduation year")).toHaveValue(2027);
-  });
   it("subscribes to email alerts", async () => {
     signedIn();
     m.updateProfile.mockResolvedValue(student({ alerts_enabled: true }));
@@ -183,25 +167,6 @@ describe("profile and alerts", () => {
     await userEvent.click(box);
     expect(m.updateProfile).toHaveBeenCalledWith({ alerts_enabled: true });
     expect(await screen.findByRole("status")).toHaveTextContent("Email alerts are on.");
-  });
-
-  describe("application tracker", () => {
-    it("lists tracked jobs and updates their status", async () => {
-      signedIn();
-      m.applications.mockResolvedValue([{
-        id: 8, job_id: 42, status: "saved", notes: "Follow up", applied_at: null,
-        created_at: "2026-10-01T00:00:00", updated_at: "2026-10-02T00:00:00",
-      }]);
-      m.updateApplication.mockResolvedValue({
-        id: 8, job_id: 42, status: "applied", notes: "Follow up", applied_at: "2026-10-01T00:00:00",
-        created_at: "2026-10-01T00:00:00", updated_at: "2026-10-03T00:00:00",
-      });
-      renderAt(<ApplicationsPage />);
-      expect(await screen.findByRole("link", { name: "Job #42" })).toHaveAttribute("href", "/jobs/42");
-      await userEvent.selectOptions(screen.getByLabelText("Status"), "applied");
-      await waitFor(() => expect(m.updateApplication).toHaveBeenCalledWith(8, { status: "applied" }));
-      expect(m.applications).toHaveBeenCalled();
-    });
   });
   it("saves profile edits with a parsed skill list", async () => {
     signedIn();

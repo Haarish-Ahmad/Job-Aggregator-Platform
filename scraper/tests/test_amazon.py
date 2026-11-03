@@ -1,6 +1,7 @@
 import pytest
 
 from scraper.adapters.amazon import AmazonAdapter
+from scraper.adapters import REGISTRY
 from scraper.config import Settings
 from scraper.models import EmploymentType, JobRef, RawJob, SearchFilters
 
@@ -8,6 +9,10 @@ from scraper.models import EmploymentType, JobRef, RawJob, SearchFilters
 @pytest.fixture
 def adapter():
     return AmazonAdapter(client=None, settings=Settings(_env_file=None))
+
+
+def test_amazon_adapter_is_registered():
+    assert REGISTRY["amazon"] is AmazonAdapter
 
 
 def _job(job_id: str, title: str = "Software Engineer") -> dict:

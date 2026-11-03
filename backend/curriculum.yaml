@@ -1,3 +1,6 @@
+# Curriculum used by GET /analytics/curriculum (placement-cell alignment snapshot).
+# Edit freely: each course lists the skills it teaches, matched (case-insensitive) against the
+# skills named in active job postings. Restart is not needed; the file is read on every request.
 version: 1
 courses:
   - name: Programming Fundamentals

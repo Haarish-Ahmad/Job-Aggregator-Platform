@@ -1,69 +1,57 @@
 import { useState, type FormEvent } from "react";
-import { useLocation } from "react-router-dom";
 import { Icon } from "../components/Icon";
 import { ResumeUpload } from "../components/ResumeUpload";
 import { Loading } from "../components/States";
-import { api } from "../lib/api";
 import { useAuth } from "../lib/auth";
+import { api } from "../lib/api";
 import { initials, parseList } from "../lib/format";
-import type { Student } from "../lib/types";
+import type { ProfileUpdate, Student } from "../lib/types";
+import { useLocation } from "react-router-dom";
 
 export function ProfilePage() {
   const { user } = useAuth();
+  const location = useLocation();
+  const resumeUploadError = (location.state as { resumeUploadError?: string } | null)?.resumeUploadError;
   // The form copies the profile into its own state once, so it must only mount after the profile has loaded.
-  return user ? <ProfileForm user={user} /> : <Loading />;
+  return user ? <ProfileForm user={user} resumeUploadError={resumeUploadError} /> : <Loading />;
 }
 
-function ProfileForm({ user }: { user: Student }) {
-  const { updateProfile, refreshUser } = useAuth();
-  const location = useLocation();
+function ProfileForm({ user, resumeUploadError }: { user: Student; resumeUploadError?: string }) {
+  const { updateProfile } = useAuth();
   const [f, setF] = useState({
     branch: user?.branch ?? "",
     cgpa: user?.cgpa?.toString() ?? "",
     grad_year: user?.grad_year?.toString() ?? "",
     skills: (user?.skills ?? []).join(", "),
   });
-  const resumeUploadError = (location.state as { resumeUploadError?: string } | null)?.resumeUploadError;
+  // Frontend only for now: never sent with the profile, gone on refresh.
+  const [resume, setResume] = useState<File | null>(null);
   const [status, setStatus] = useState<{ kind: "ok" | "error"; text: string } | undefined>(
-    resumeUploadError ? { kind: "error", text: `Your account was created, but the resume could not be uploaded: ${resumeUploadError}` } : undefined,
+    resumeUploadError ? { kind: "error", text: resumeUploadError } : undefined,
   );
   const [busy, setBusy] = useState(false);
   const [alertBusy, setAlertBusy] = useState(false);
   const set = (k: keyof typeof f) => (e: { target: { value: string } }) => setF({ ...f, [k]: e.target.value });
-
-  async function uploadResume(file: File) {
-    const parsed = await api.uploadResume(file);
-    setF((current) => ({
-      ...current,
-      skills: [...new Set([...parseList(current.skills), ...parsed.skills])].join(", "),
-      cgpa: parsed.cgpa === null ? current.cgpa : String(parsed.cgpa),
-      grad_year: parsed.grad_year === null ? current.grad_year : String(parsed.grad_year),
-    }));
-    await refreshUser();
-    return parsed;
-  }
-
-  async function downloadResume() {
-    const blob = await api.downloadResume();
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = "resume.pdf";
-    link.click();
-    window.setTimeout(() => URL.revokeObjectURL(url), 1000);
-  }
 
   async function save(e: FormEvent) {
     e.preventDefault();
     setBusy(true);
     setStatus(undefined);
     try {
-      await updateProfile({
+      const update: ProfileUpdate = {
         branch: f.branch.trim() || null,
         cgpa: f.cgpa === "" ? null : Number(f.cgpa),
         grad_year: Number(f.grad_year),
         skills: parseList(f.skills),
-      });
+      };
+      if (resume) {
+        const parsed = await api.uploadResume(resume);
+        update.skills = [...new Set([...(update.skills ?? []), ...parsed.skills])];
+        if (parsed.cgpa !== null) update.cgpa = parsed.cgpa;
+        if (parsed.grad_year !== null) update.grad_year = parsed.grad_year;
+      }
+      await updateProfile(update);
+      setResume(null);
       setStatus({ kind: "ok", text: "Profile saved." });
     } catch (err) {
       setStatus({ kind: "error", text: (err as Error).message });
@@ -81,6 +69,19 @@ function ProfileForm({ user }: { user: Student }) {
       setStatus({ kind: "error", text: (err as Error).message });
     } finally {
       setAlertBusy(false);
+    }
+  }
+  async function downloadResume() {
+    setStatus(undefined);
+    try {
+      const url = URL.createObjectURL(await api.downloadResume());
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = "resume.pdf";
+      link.click();
+      window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+    } catch (err) {
+      setStatus({ kind: "error", text: (err as Error).message });
     }
   }
 
@@ -112,7 +113,8 @@ function ProfileForm({ user }: { user: Student }) {
               <label className="field">Graduation year<input type="number" min="2000" max="2100" value={f.grad_year} onChange={set("grad_year")} required /></label>
             </div>
             <label className="field">Skills <small>(comma separated)</small><input value={f.skills} onChange={set("skills")} placeholder="python, sql, react" /></label>
-            <ResumeUpload hasResume={user.has_resume} onUpload={uploadResume} onDownload={downloadResume} />
+            {user.has_resume && <button type="button" className="btn small" onClick={() => void downloadResume()}>Download saved resume</button>}
+            <ResumeUpload file={resume} onChange={setResume} />
             <div>
               <button className="btn primary" disabled={busy}>{busy ? "Saving…" : "Save profile"}</button>
             </div>

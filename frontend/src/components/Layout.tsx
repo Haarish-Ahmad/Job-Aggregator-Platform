@@ -1,14 +1,24 @@
-import { NavLink, Outlet, useNavigate } from "react-router-dom";
+import { Link, NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../lib/auth";
 import { initials } from "../lib/format";
 import { Icon, type IconName } from "./Icon";
 
-const TABS: { to: string; label: string; icon: IconName; end?: boolean }[] = [
+// Header links: text only, centred. "end" keeps Home from matching every page.
+const NAV: { to: string; label: string; end?: boolean }[] = [
+  { to: "/", label: "Home", end: true },
+  { to: "/jobs", label: "Jobs" },
+  { to: "/matches", label: "My matches" },
+  { to: "/applications", label: "Applications" },
+  { to: "/analytics", label: "Analytics" },
+];
+// Phones get a bottom tab bar instead of the header links (the logo goes Home).
+const MOBILE_TABS: { to: string; label: string; icon: IconName }[] = [
   { to: "/jobs", label: "Jobs", icon: "briefcase" },
   { to: "/matches", label: "My matches", icon: "target" },
   { to: "/dashboard", label: "Dashboard", icon: "chart" },
-  { to: "/applications", label: "Applications", icon: "file" },
+  { to: "/applications", label: "Applications", icon: "bookmark" },
   { to: "/analytics", label: "Analytics", icon: "chart" },
+  { to: "/profile", label: "Profile", icon: "user" },
 ];
 
 export function Brand() {
@@ -22,51 +32,84 @@ export function Brand() {
   );
 }
 
-export function Layout() {
-  const { user, logout } = useAuth();
+/** The one site header, used by the signed-in pages (via Layout) and the public home page. */
+export function SiteHeader() {
+  const { user, checking, logout } = useAuth();
   const navigate = useNavigate();
-  const tabs = user?.role === "admin" ? [...TABS, { to: "/admin", label: "Admin", icon: "user" as const }] : TABS;
-  const mobileTabs = [...tabs, { to: "/profile", label: "Profile", icon: "user" as const }];
+  const onHome = useLocation().pathname === "/";
+  const nav = user
+    ? [...NAV, { to: "/dashboard", label: "Dashboard" }, ...(user.role === "admin" ? [{ to: "/admin", label: "Admin" }] : [])]
+    : NAV;
+  return (
+    <header className="topbar">
+      <div className="topbar-inner">
+        <NavLink to="/" className="brand-link" aria-label="Job Aggregator home">
+          <Brand />
+        </NavLink>
+        <nav aria-label="Main" className="tabs">
+          {nav.map((t) => (
+            <NavLink key={t.to} to={t.to} end={t.end}>
+              {t.label}
+            </NavLink>
+          ))}
+        </nav>
+        <div className="who">
+          {checking ? null : user ? (
+            <>
+              <NavLink to="/profile" className="profile-pill" title={user.email}>
+                <Icon name="menu" size={16} />
+                <span className="avatar" aria-hidden="true">
+                  {initials(user.name).slice(0, 1)}
+                </span>
+                <span className="who-name">{user.name}</span>
+              </NavLink>
+              <button
+                type="button"
+                className="btn ghost small"
+                onClick={async () => {
+                  await logout();
+                  // The home page is public, so signing out there just stays on it.
+                  if (!onHome) navigate("/login");
+                }}
+              >
+                <Icon name="logout" size={16} />
+                <span className="hide-sm">Sign out</span>
+              </button>
+            </>
+          ) : (
+            <>
+              <Link to="/login" className="btn ghost small">Log in</Link>
+              <Link to="/register" className="btn primary small">Sign up</Link>
+            </>
+          )}
+        </div>
+      </div>
+    </header>
+  );
+}
+
+export function BottomTabs() {
+  const { user } = useAuth();
+  const tabs = user?.role === "admin" ? [...MOBILE_TABS, { to: "/admin", label: "Admin", icon: "user" as const }] : MOBILE_TABS;
+  return (
+    <nav aria-label="Main (mobile)" className="bottom-tabs">
+      {tabs.map((t) => (
+        <NavLink key={t.to} to={t.to}>
+          <Icon name={t.icon} size={22} />
+          <span>{t.label}</span>
+        </NavLink>
+      ))}
+    </nav>
+  );
+}
+
+export function Layout() {
   return (
     <>
       <a className="skip" href="#main">
         Skip to content
       </a>
-      <header className="topbar">
-        <div className="topbar-inner">
-          <NavLink to="/" className="brand-link" aria-label="Job Aggregator home">
-            <Brand />
-          </NavLink>
-          <nav aria-label="Main" className="tabs">
-            {tabs.map((t) => (
-              <NavLink key={t.to} to={t.to} end={t.end}>
-                <Icon name={t.icon} size={18} />
-                {t.label}
-              </NavLink>
-            ))}
-          </nav>
-          <div className="who">
-            <NavLink to="/profile" className="profile-pill" title={user?.email}>
-              <Icon name="menu" size={16} />
-              <span className="avatar" aria-hidden="true">
-                {initials(user?.name ?? null).slice(0, 1)}
-              </span>
-              <span className="who-name">{user?.name}</span>
-            </NavLink>
-            <button
-              type="button"
-              className="btn ghost small"
-              onClick={async () => {
-                await logout();
-                navigate("/login");
-              }}
-            >
-              <Icon name="logout" size={16} />
-              <span className="hide-sm">Sign out</span>
-            </button>
-          </div>
-        </div>
-      </header>
+      <SiteHeader />
       <main id="main">
         <Outlet />
       </main>
@@ -76,15 +119,7 @@ export function Layout() {
           <span>Listings are collected from public job boards and company career pages. Always confirm details on the original posting.</span>
         </div>
       </footer>
-      {/* Phones get a bottom tab bar instead of the header tabs. */}
-      <nav aria-label="Main (mobile)" className="bottom-tabs">
-        {mobileTabs.map((t) => (
-          <NavLink key={t.to} to={t.to} end={t.end}>
-            <Icon name={t.icon} size={22} />
-            <span>{t.label}</span>
-          </NavLink>
-        ))}
-      </nav>
+      <BottomTabs />
     </>
   );
 }

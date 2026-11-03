@@ -1,10 +1,10 @@
 import type {
-  CompaniesReport,
-  Company,
-  CurriculumReport,
-  Application,
-  ApplicationStatus,
   AdminAnalytics,
+  Application,
+  ApplicationUpdate,
+  Company,
+  CompaniesReport,
+  CurriculumReport,
   Job,
   JobPage,
   JobQuery,
@@ -112,14 +112,6 @@ export const api = {
     return { jobs, total: header !== null && header !== "" ? Number(header) : jobs.length };
   },
   job: (id: number) => getJson<Job>(`/jobs/${id}`),
-  applications: (status?: ApplicationStatus) => getJson<Application[]>(`/me/applications${qs({ status })}`),
-  createApplication: async (job_id: number, status: ApplicationStatus = "saved") =>
-    (await request("/me/applications", { method: "POST", json: { job_id, status } })).json() as Promise<Application>,
-  updateApplication: async (id: number, update: { status?: ApplicationStatus; notes?: string }) =>
-    (await request(`/me/applications/${id}`, { method: "PATCH", json: update })).json() as Promise<Application>,
-  deleteApplication: async (id: number) => {
-    await request(`/me/applications/${id}`, { method: "DELETE" });
-  },
   matches: (opts: { min_score?: number; include_unmatched?: boolean } = {}) =>
     getJson<MatchedJob[]>(`/me/matches${qs({ min_score: opts.min_score || undefined, include_unmatched: opts.include_unmatched })}`),
   myStats: (limit = 10) => getJson<MyStats>(`/me/stats${qs({ limit })}`),
@@ -127,6 +119,15 @@ export const api = {
   companyDirectory: () => getJson<Company[]>("/companies"),
   createCompany: async (company: Omit<Company, "id">) =>
     (await request("/company", { method: "POST", json: company })).json() as Promise<Company>,
+
+  applications: () => getJson<Application[]>("/me/applications"),
+  /** Always created as "saved"; the student moves it on by hand. 409 if the job is already tracked. */
+  saveJob: async (jobId: number) => (await request("/me/applications", { method: "POST", json: { job_id: jobId } })).json() as Promise<Application>,
+  updateApplication: async (id: number, update: ApplicationUpdate) =>
+    (await request(`/me/applications/${id}`, { method: "PATCH", json: update })).json() as Promise<Application>,
+  removeApplication: async (id: number) => {
+    await request(`/me/applications/${id}`, { method: "DELETE" });
+  },
 
   skills: (opts: { scope?: Scope; limit?: number; weeks?: number } = {}) => getJson<SkillsReport>(`/analytics/skills${qs(opts)}`),
   skillGap: (opts: { scope?: Scope; limit?: number; weeks?: number } = {}) => getJson<SkillGapReport>(`/analytics/skill-gap${qs(opts)}`),

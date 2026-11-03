@@ -50,8 +50,8 @@ services:
     <<: *restart
     image: ${IMAGE_PREFIX:-job-aggregator}-backend:${IMAGE_TAG:-local}
     build:
-      context: ./backend
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: backend/Dockerfile
     depends_on:
       db: { condition: service_healthy }
       mailpit: { condition: service_healthy }
@@ -64,21 +64,19 @@ services:
       ADMIN_PASSWORD: ${ADMIN_PASSWORD:-}
       CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost}
       ROOT_PATH: /api
-      COOKIE_SECURE: ${SESSION_COOKIE_SECURE:-false}
-      RESUME_DIR: /app/resumes
+      SESSION_COOKIE_SECURE: ${SESSION_COOKIE_SECURE:-false}
       PUBLIC_URL: ${PUBLIC_URL:-http://localhost}
       SMTP_HOST: ${SMTP_HOST:-mailpit}
       SMTP_PORT: ${SMTP_PORT:-1025}
       SMTP_USER: ${SMTP_USER:-}
       SMTP_PASSWORD: ${SMTP_PASSWORD:-}
       SMTP_STARTTLS: ${SMTP_STARTTLS:-false}
-      SMTP_FROM: ${MAIL_FROM:-alerts@jobs.local}
+      MAIL_FROM: ${MAIL_FROM:-alerts@jobs.local}
       ALERT_MIN_SCORE: ${ALERT_MIN_SCORE:-60}
-      ALERT_PER_EMAIL: ${ALERT_PER_EMAIL:-5}
       STALE_DAYS: ${STALE_DAYS:-14}
+      RESUME_DIR: /data/resumes
     volumes:
-      - resume_files:/app/resumes
-      - model_cache:/models
+      - resume_data:/data/resumes
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=3)"]
       interval: 10s
@@ -98,7 +96,7 @@ services:
       INGEST_TOKEN: ${INGEST_TOKEN}
       FIRECRAWL_API_URL: ${FIRECRAWL_API_URL:-http://host.docker.internal:3002}
       FIRECRAWL_API_KEY: ${FIRECRAWL_API_KEY:-}
-      SERVE_SOURCES: ${SERVE_SOURCES:-unstop,shine,internshala,google,microsoft,amazon}
+      SERVE_SOURCES: ${SERVE_SOURCES:-unstop,shine,internshala,amazon}
       SERVE_LIMIT: ${SERVE_LIMIT:-300}
       SCRAPE_INTERVAL_HOURS: ${SCRAPE_INTERVAL_HOURS:-12}
       RUN_ON_START: ${RUN_ON_START:-true}
@@ -182,8 +180,7 @@ services:
 
 volumes:
   pgdata:
-  resume_files:
-  model_cache:
+  resume_data:
   scraper_data:
   prom_data:
   grafana_state:

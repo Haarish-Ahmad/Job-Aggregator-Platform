@@ -24,7 +24,7 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - { service: backend, context: backend, file: backend/Dockerfile }
+          - { service: backend, context: ., file: backend/Dockerfile }
           - { service: scraper, context: scraper, file: scraper/Dockerfile }
           - { service: frontend, context: frontend, file: frontend/Dockerfile }
           - { service: nginx, context: infra/nginx, file: infra/nginx/Dockerfile }

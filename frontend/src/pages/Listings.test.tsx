@@ -74,12 +74,8 @@ it("puts filters in the URL and queries the API with them", async () => {
   expect(screen.getByTestId("url").textContent).toContain("q=backend");
   await userEvent.selectOptions(screen.getByLabelText("Type"), "internship");
   await waitFor(() => expect(jobs).toHaveBeenLastCalledWith(expect.objectContaining({ job_type: "internship", q: "backend" })));
-  await userEvent.selectOptions(screen.getByLabelText("Target companies"), "big_tech");
-  await waitFor(() => expect(jobs).toHaveBeenLastCalledWith(expect.objectContaining({ company_group: "big_tech", job_type: "internship", q: "backend" })));
-  await userEvent.selectOptions(screen.getByLabelText("Source"), "amazon");
-  await waitFor(() => expect(jobs).toHaveBeenLastCalledWith(expect.objectContaining({ source: "amazon", company_group: "big_tech" })));
   await userEvent.click(screen.getByLabelText("Hide closed"));
-  await waitFor(() => expect(jobs).toHaveBeenLastCalledWith(expect.objectContaining({ hide_expired: true, source: "amazon", company_group: "big_tech" })));
+  await waitFor(() => expect(jobs).toHaveBeenLastCalledWith(expect.objectContaining({ hide_expired: true })));
 });
 
 it("the category row filters by job type and shows which one is selected", async () => {
@@ -92,6 +88,15 @@ it("the category row filters by job type and shows which one is selected", async
   await waitFor(() => expect(jobs).toHaveBeenLastCalledWith(expect.objectContaining({ job_type: "internship" })));
   expect(within(row).getByRole("button", { name: "Internships" })).toHaveAttribute("aria-pressed", "true");
   expect(screen.getByLabelText("Type")).toHaveValue("internship");
+});
+
+it("filters by company group and preserves it in the URL", async () => {
+  jobs.mockResolvedValue({ jobs: [job()], total: 1 });
+  page();
+  await screen.findByText("Python Developer");
+  await userEvent.selectOptions(screen.getByLabelText("Company group"), "big_tech");
+  await waitFor(() => expect(jobs).toHaveBeenLastCalledWith(expect.objectContaining({ company_group: "big_tech" })));
+  expect(screen.getByTestId("url").textContent).toContain("company_group=big_tech");
 });
 
 it("changing a filter goes back to page 1, and clear filters resets", async () => {

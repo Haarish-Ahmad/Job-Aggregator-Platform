@@ -10,7 +10,6 @@ interface AuthValue {
   register: (input: RegisterInput) => Promise<void>;
   logout: () => Promise<void>;
   updateProfile: (update: ProfileUpdate) => Promise<void>;
-  refreshUser: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthValue | null>(null);
@@ -47,9 +46,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(null);
   }, []);
   const updateProfile = useCallback(async (update: ProfileUpdate) => setUser(await api.updateProfile(update)), []);
-  const refreshUser = useCallback(async () => setUser(await api.me()), []);
 
-  const value = useMemo(() => ({ user, checking, login, register, logout, updateProfile, refreshUser }), [user, checking, login, register, logout, updateProfile, refreshUser]);
+  const value = useMemo(() => ({ user, checking, login, register, logout, updateProfile }), [user, checking, login, register, logout, updateProfile]);
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 

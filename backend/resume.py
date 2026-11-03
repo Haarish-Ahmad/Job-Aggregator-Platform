@@ -7,7 +7,7 @@ SEED = {
     "react", "vue", "node.js", "fastapi", "flask", "django", "docker", "git", "sqlite",
     "aws", "linux", "c++", "c#", "machine learning", "deep learning", "pandas",
     "numpy", "pytorch", "tensorflow", "html", "css", "tailwind", "rest api","sckit-learn","langchain","langgraph","chromadb","faiss","computer networks","networking",
-    "crewai","aws","azure","jenkins","github actions","devops","kali","metasploit","operating systems","object oriented programming","go","kotlin","react-native"
+    "crewai","azure","jenkins","github actions","devops","kali","metasploit","operating systems","object oriented programming","go","kotlin","react-native"
 }
 ALIASES = {
     "js": "javascript", "ts": "typescript", "postgres": "postgresql","os":"operating systems",

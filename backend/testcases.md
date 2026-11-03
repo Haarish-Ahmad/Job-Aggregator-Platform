@@ -2,48 +2,11 @@
 
 FastAPI + SQLAlchemy + PostgreSQL backend for the Job Aggregator Platform. Students register, jobs are ingested (by the scraper), and each student gets a ranked list of matching jobs.
 
-## Run locally
-
-```bash
-cd backend
-pip install -r requirements.txt
-alembic upgrade head
-uvicorn main:app --reload
-```
-
-The API runs at `http://localhost:8000`. Interactive docs are at `http://localhost:8000/docs`.
-
-## API endpoints
-
-| Method | Path | Auth | Purpose |
-|---|---|---|---|
-| GET | /health | none | Health check |
-| POST | /auth/register | none | Create a student account |
-| POST | /auth/login | none | Log in, sets a session cookie |
-| POST | /auth/logout | login | Clear the session |
-| GET | /me | login | Current student profile |
-| PATCH | /me/update | login | Update branch, cgpa, grad_year, skills, resume_link |
-| GET | /me/matches | login | Eligible jobs ranked by skill match; optional `min_score` |
-| POST | /company | login | Create a company |
-| GET | /companies | login | List companies |
-| POST | /internal/jobs | admin | Bulk ingest jobs, deduplicated by content hash |
-| GET | /jobs | login | List jobs; filters `q`, `company_id`, `job_type`, `active_only`, `limit`, `offset` |
-| GET | /jobs/{job_id} | login | Single job |
-
-## Matching rules
-
-A job is shown to a student only if all of these hold:
-
-- The deadline has not passed.
-- The student's CGPA is at least the job's `min_cgpa` (when set).
-- The student's branch is in `allowed_branches` (when set).
-- The student's `grad_year` is in `allowed_grads` (when set).
-
-The score is the percentage of the job's required skills that the student has. A job with no required skills scores 100. This is rule-based matching, not machine learning.
+The API reference, configuration and matching rules are in [README.md](README.md).
 
 ## API test cases
 
-42 manual test cases, run from [Bruno](https://www.usebruno.com/) against a local server. Run the sections in order, because later sections depend on earlier data and on who is logged in.
+42 test cases. They are automated in `tests/test_testcases.py` (one test per case, same order and data; deadlines are relative to today) and can still be run by hand from [Bruno](https://www.usebruno.com/) against a local server. Run the sections in order, because later sections depend on earlier data and on who is logged in.
 
 ### Setup
 

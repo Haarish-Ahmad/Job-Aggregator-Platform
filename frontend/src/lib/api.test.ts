@@ -55,22 +55,18 @@ describe("jobs()", () => {
     await api.jobs({ hide_expired: true });
     expect(fetchMock.mock.calls[0][0]).toContain("hide_expired=true");
   });
-  it("sends the selected company group with job filters", async () => {
-    fetchMock.mockResolvedValue(json([]));
-    await api.jobs({ company_group: "big_tech" });
-    expect(fetchMock.mock.calls[0][0]).toContain("company_group=big_tech");
-  });
 });
 
-it("uploads resumes as multipart data without overriding the browser content type", async () => {
-  fetchMock.mockResolvedValue(json({ has_resume: true, skills: ["python"], new_skills: ["python"], cgpa: 8.5, grad_year: 2026 }));
-  const file = new File(["resume"], "resume.pdf", { type: "application/pdf" });
-  await api.uploadResume(file);
-  const [, init] = fetchMock.mock.calls[0];
-  expect(init.method).toBe("POST");
-  expect(init.body).toBeInstanceOf(FormData);
-  expect(init.body.get("file")).toBe(file);
-  expect(init.headers["Content-Type"]).toBeUndefined();
+describe("resume endpoints", () => {
+  it("uploads a PDF as multipart form data without overriding the browser boundary", async () => {
+    fetchMock.mockResolvedValue(json({ has_resume: true }));
+    await api.uploadResume(new File(["resume"], "resume.pdf", { type: "application/pdf" }));
+    const [url, init] = fetchMock.mock.calls[0];
+    expect(url).toBe("/api/me/resume");
+    expect(init.method).toBe("POST");
+    expect(init.body).toBeInstanceOf(FormData);
+    expect(init.headers["Content-Type"]).toBeUndefined();
+  });
 });
 
 describe("errors", () => {

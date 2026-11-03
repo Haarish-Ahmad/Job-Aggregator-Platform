@@ -101,10 +101,8 @@ total2=$(curl -fsS -b "$JAR" -D - -o /dev/null "$BASE/api/jobs?source=shine&scop
 job=$(curl -fsS -b "$JAR" "$BASE/api/jobs?source=shine&scope=all&limit=1")
 contains "the posting's skills reached the backend" '"necessary_skills":["java","python","ml","ai"]' "$job"
 contains "scraped job has company, apply link and freshness" '"last_seen_at"' "$job"
-# Embedding scores are model-dependent; verify the scraped job is returned with a valid score.
-matches=$(curl -fsS -b "$JAR" "$BASE/api/me/matches")
-python3 -c 'import json,sys; data=json.loads(sys.argv[1]); sys.exit(0 if any(m["score"] > 0 for m in data) else 1)' "$matches" \
-  && ok "student matches the scraped job" || bad "student did not match the scraped job"
+# the smoke student lists all four of the posting's skills; fewer than 60% would also mean no alert email
+contains "student matches the scraped job" '"score":100' "$(curl -fsS -b "$JAR" "$BASE/api/me/matches")"
 contains "analytics available to the admin" '"skills"' "$(curl -fsS -b "$ADMIN_JAR" "$BASE/api/analytics/skill-gap")"
 [ "$(curl -s -o /dev/null -w '%{http_code}' -b "$JAR" "$BASE/api/analytics/skill-gap")" = 403 ] && ok "skill gap is admin-only" || bad "skill gap not restricted"
 

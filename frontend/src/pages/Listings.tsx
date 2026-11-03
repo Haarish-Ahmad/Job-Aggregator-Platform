@@ -29,9 +29,9 @@ const TYPES = [
   { value: "part_time", label: "Part time" },
   { value: "contract", label: "Contract" },
 ];
-const SOURCES = ["", "amazon", "shine", "internshala", "unstop", "greenhouse", "microsoft", "google", "ycombinator"];
+const SOURCES = ["", "shine", "internshala", "unstop", "amazon", "greenhouse", "microsoft", "google", "ycombinator"];
 const COMPANY_GROUPS = [
-  { value: "", label: "Any company" },
+  { value: "", label: "Any company group" },
   { value: "big_tech", label: "Big tech" },
   { value: "indian_startups", label: "Indian startups" },
   { value: "fintech", label: "Fintech" },
@@ -165,7 +165,7 @@ export function ListingsPage() {
               </select>
             </label>
             <label className="field">
-              Target companies
+              Company group
               <select value={query.company_group ?? ""} onChange={(e) => update({ company_group: e.target.value })}>
                 {COMPANY_GROUPS.map((group) => <option key={group.value} value={group.value}>{group.label}</option>)}
               </select>

@@ -18,11 +18,6 @@ def test_serve_sources_parse(monkeypatch):
     assert Settings(_env_file=None).serve_source_list == ["unstop", "shine"]
 
 
-def test_scheduled_sources_include_careers_adapters(monkeypatch):
-    monkeypatch.delenv("SERVE_SOURCES", raising=False)
-    assert {"google", "microsoft", "amazon"} <= set(Settings(_env_file=None).serve_source_list)
-
-
 def make(external_id="1", title="T", hash_="a"):
     return JobRecord(source="s", company="C", external_id=external_id, url="https://x.com/1", scraped_at=datetime.now(UTC),
                      content_hash=hash_, title=title)

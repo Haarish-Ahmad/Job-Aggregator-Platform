@@ -64,7 +64,7 @@ function ResumeField({ file, onChange }: { file: File | null; onChange: (file: F
           </div>
         ) : (
           <label>
-            <span>Resume <small>(optional · text-based PDF, up to 10 MB)</small></span>
+            <span>Resume <small>(optional · PDF, up to 5 MB)</small></span>
             <input type="file" accept={RESUME_ACCEPT} onChange={pick} />
           </label>
         )}
@@ -110,10 +110,11 @@ export function LoginPage() {
 }
 
 export function RegisterPage() {
-  const { register, refreshUser } = useAuth();
+  const { register, updateProfile } = useAuth();
   const navigate = useNavigate();
   const [f, setF] = useState({ name: "", email: "", password: "", branch: "", cgpa: "", grad_year: String(new Date().getFullYear() + 1), skills: "" });
   const set = (k: keyof typeof f) => (e: { target: { value: string } }) => setF({ ...f, [k]: e.target.value });
+  // Kept apart from `f`, which holds only strings. Not sent with the registration.
   const [resume, setResume] = useState<File | null>(null);
   const { error, busy, onSubmit } = useSubmit(async () => {
     await register({
@@ -128,12 +129,11 @@ export function RegisterPage() {
     if (resume) {
       try {
         const parsed = await api.uploadResume(resume);
-        await api.updateProfile({
+        await updateProfile({
           skills: [...new Set([...parseList(f.skills), ...parsed.skills])],
           ...(parsed.cgpa === null ? {} : { cgpa: parsed.cgpa }),
           ...(parsed.grad_year === null ? {} : { grad_year: parsed.grad_year }),
         });
-        await refreshUser();
       } catch (err) {
         navigate("/profile", { replace: true, state: { resumeUploadError: (err as Error).message } });
         return;
