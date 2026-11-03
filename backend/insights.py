@@ -1,4 +1,5 @@
 """Student recommendations and platform-wide admin summaries."""
+from collections.abc import Sequence
 from datetime import date, datetime, timedelta
 
 from fastapi import APIRouter, Depends, Query
@@ -15,7 +16,7 @@ from schemas import JobOut
 router = APIRouter(tags=["insights"])
 
 
-def _job_rows(jobs: list[Job]) -> list[JobOut]:
+def _job_rows(jobs: Sequence[Job]) -> list[JobOut]:
     return [JobOut.model_validate(job) for job in jobs]
 
 

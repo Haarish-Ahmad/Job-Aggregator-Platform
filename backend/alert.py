@@ -1,4 +1,3 @@
-import os
 import smtplib
 from datetime import datetime
 from email.message import EmailMessage
@@ -6,24 +5,25 @@ from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from matching import compute_matches, save_matches
 from models import Match, Students
-from config import ALERT_MIN_SCORE,ALERT_PER_EMAIL,SMTP_FROM,SMTP_HOST,SMTP_PORT
+from config import get_settings
 
 def send_email(recipient:str,body:str,subject:str):
+    settings = get_settings()
     msg=EmailMessage()
-    msg['From']=SMTP_FROM
+    msg['From']=settings.mail_from
     msg['To']=recipient
     msg['Subject']=subject
     msg.set_content(body)
 
-    with smtplib.SMTP(SMTP_HOST,int(SMTP_PORT),timeout=15) as s:
-        if os.getenv("SMTP_STARTTLS","false").lower()=="true":
+    with smtplib.SMTP(settings.smtp_host, settings.smtp_port, timeout=15) as s:
+        if settings.smtp_starttls:
             s.starttls()
-        smtp_user=os.getenv("SMTP_USER")
-        if smtp_user:
-            s.login(smtp_user,os.getenv("SMTP_PASSWORD",""))
+        if settings.smtp_user:
+            s.login(settings.smtp_user, settings.smtp_password)
         s.send_message(msg)
 
 def run_alerts(db)->int:
+    settings = get_settings()
     students=db.scalars(select(Students).where(Students.role=="student",Students.alerts_enabled.is_(True))).all()
     sent=0
     for st in students:
@@ -35,12 +35,12 @@ def run_alerts(db)->int:
         except IntegrityError:
             db.rollback()
 
-        fresh={j.id:(j,s) for j,s in results if s is not None and s>=ALERT_MIN_SCORE}
+        fresh={j.id:(j,s) for j,s in results if s is not None and s>=settings.alert_min_score}
         if not fresh:
             continue    
         rows=db.scalars(
             select(Match).where(Match.student_id==st.id,Match.notified_at.is_(None),Match.job_id.in_(list(fresh)))).all()
-        rows=sorted(rows,key=lambda m:-m.score)[:max(0,int(ALERT_PER_EMAIL))]
+        rows=sorted(rows,key=lambda m:-m.score)[:max(0, settings.alert_max_jobs_per_email)]
         if not rows:
             continue    
         lines=[]  

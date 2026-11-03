@@ -4,9 +4,11 @@ from sqlalchemy.orm import Session
 from werkzeug.security import generate_password_hash
 from db import engine
 from models import Students
-from config import ADMIN_EMAIL,ADMIN_PASSWORD
+from config import get_settings
 
-email=ADMIN_EMAIL.strip().lower()
+settings = get_settings()
+email = settings.admin_email.strip().lower()
+ADMIN_PASSWORD = settings.admin_password
 password=ADMIN_PASSWORD
 if len(password) < 8:
     raise SystemExit("ADMIN_PASSWORD must be at least 8 characters")
